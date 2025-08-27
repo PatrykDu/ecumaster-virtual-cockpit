@@ -120,6 +120,16 @@ Window {
                 warnFrom: 5300
                 warnTo: 6000
                 warnColor: '#ffcc33'
+                // red zone dynamic
+                property int oilTempLocal: TEL ? TEL.oilTemp : 0
+                property int dynRedline: redlineForOilTemp(oilTempLocal)
+                // Animate red zone boundary
+                Behavior on redFrom { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+                Behavior on redTo { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+                onDynRedlineChanged: {
+                    redFrom = dynRedline
+                    redTo = 7000
+                }
             }
 
             // Inner circle (speed display) - simplified (only one circle now)
@@ -203,5 +213,28 @@ Window {
             anchors.rightMargin: -280 // adjust gap between cluster and water gauge (smaller = more to right)
             width: root.width * 0.18
         }
+    }
+
+    function redlineForOilTemp(oilTemp) {
+        // Interpolation table (oil_temp_c -> redline_rpm)
+        // Based on provided photo (approx):
+        // 20:2500, 25:2750, 30:3000, 35:3250, 40:3500, 45:3850,
+        // 50:4200, 55:4500, 60:4800, 65:5100, 70:5400, 75:5700,
+        // 80:5994, 85:5994, 90:5994 (plateau from 80 up)
+        var table = [
+            [20,2500],[25,2750],[30,3000],[35,3250],[40,3500],[45,3850],
+            [50,4200],[55,4500],[60,4800],[65,5100],[70,5400],[75,5700],
+            [80,5994]
+        ];
+        if (oilTemp <= table[0][0]) return table[0][1];
+        if (oilTemp >= table[table.length-1][0]) return table[table.length-1][1];
+        for (var i=0;i<table.length-1;i++) {
+            var a = table[i]; var b = table[i+1];
+            if (oilTemp >= a[0] && oilTemp <= b[0]) {
+                var t = (oilTemp - a[0])/(b[0]-a[0]);
+                return a[1] + t*(b[1]-a[1]);
+            }
+        }
+        return 5994;
     }
 }

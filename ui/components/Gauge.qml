@@ -64,6 +64,11 @@ Item {
     onNeedleTipInsetChanged: needleCanvas.requestPaint()
     onNeedleTailChanged: needleCanvas.requestPaint()
     onNeedleThicknessChanged: needleCanvas.requestPaint()
+    // New: repaint scale when dynamic zones change
+    onRedFromChanged: scaleCanvas.requestPaint()
+    onRedToChanged: scaleCanvas.requestPaint()
+    onWarnFromChanged: scaleCanvas.requestPaint()
+    onWarnToChanged: scaleCanvas.requestPaint()
 
     Canvas {
         id: scaleCanvas
