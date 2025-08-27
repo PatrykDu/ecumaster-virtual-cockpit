@@ -14,6 +14,7 @@ class Telemetry(QObject):
     parkChanged = Signal(bool)
     firstFrameReceived = Signal()
     fuelChanged = Signal(int)  # 0..100 percent
+    waterTempChanged = Signal(int)  # coolant temperature (0..150 C)
 
     def __init__(self):
         super().__init__()
@@ -25,6 +26,7 @@ class Telemetry(QObject):
         self._fog = False
         self._park = False
         self._fuel = 0  # percent
+        self._waterTemp = 0  # degrees C (0..150)
         self._got_first = False
         self._mtx = QMutex()
 
@@ -126,6 +128,20 @@ class Telemetry(QObject):
 
     fuel = Property(int, getFuel, setFuel, notify=fuelChanged)
 
+    # Water temperature (0-150 C)
+    def getWaterTemp(self) -> int:
+        return self._waterTemp
+
+    def setWaterTemp(self, v: int):
+        if v < 0: v = 0
+        if v > 150: v = 150
+        if v == self._waterTemp:
+            return
+        self._waterTemp = v
+        self.waterTempChanged.emit(v)
+
+    waterTemp = Property(int, getWaterTemp, setWaterTemp, notify=waterTempChanged)
+
     def updateFromFrame(self, rpm: int, speed_kmh: float, flags: int):
         with QMutexLocker(self._mtx):
             self.setRpm(rpm)
@@ -135,8 +151,10 @@ class Telemetry(QObject):
             self.setHighBeam(bool(flags & (1 << 2)))
             self.setFog(bool(flags & (1 << 3)))
             self.setPark(bool(flags & (1 << 4)))
-            # Update fuel level from flags (assuming it's encoded in the flags for now)
-            self.setFuel((flags >> 5) & 0xFF)  # Just an example, adjust as necessary
+            # Update fuel level from flags (example)
+            self.setFuel((flags >> 5) & 0xFF)
+            # Water temp demo mapping (reuse fuel for now if not present)
+            self.setWaterTemp(min(150, int(self._fuel * 1.5)))
             if not self._got_first:
                 self._got_first = True
                 self.firstFrameReceived.emit()

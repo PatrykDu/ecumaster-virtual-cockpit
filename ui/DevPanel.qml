@@ -7,7 +7,7 @@ Window {
     id: dev
     title: "Dev Panel"
     width: 420
-    height: 520
+    height: 560
     visible: true
     color: "#202225"
 
@@ -72,6 +72,25 @@ Window {
                 Layout.fillWidth: true
                 value: TEL.fuel
                 onValueChanged: TEL.fuel = Math.round(value)
+            }
+        }
+
+        // Water temp row
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            Text {
+                text: 'Temp: ' + TEL.waterTemp + ' °C'
+                color: 'white'
+                horizontalAlignment: Text.AlignRight
+                Layout.preferredWidth: 90
+            }
+            Slider {
+                id: waterTempSlider
+                from: 0; to: 150; stepSize: 1
+                Layout.fillWidth: true
+                value: TEL.waterTemp
+                onValueChanged: TEL.waterTemp = Math.round(value)
             }
         }
 

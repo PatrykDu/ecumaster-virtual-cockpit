@@ -183,5 +183,16 @@ Window {
             width: root.width * 0.22
             height: root.height * 0.32
         }
+        // Water temp gauge bottom-right (mirrored counterpart)
+        WaterTempGauge {
+            id: waterTempGauge
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.rightMargin: width * 0.02 + 20
+            anchors.bottomMargin: height * 0.02 + 20
+            width: root.width * 0.22
+            height: root.height * 0.32
+            tempC: TEL ? TEL.waterTemp : 0
+        }
     }
 }
