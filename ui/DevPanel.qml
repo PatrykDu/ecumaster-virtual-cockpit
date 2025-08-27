@@ -72,8 +72,27 @@ Window {
             }
         }
 
+        // --- Left Cluster Navigation (arrow buttons) ---
         Rectangle { Layout.fillWidth: true; height: 1; color: '#444' }
+        Text { text: "Left Cluster Navigation"; color: '#bbb'; font.pixelSize: 14; Layout.topMargin: -4 }
+        // Grid-like arrangement using two RowLayouts
+        RowLayout { // Up button centered
+            Layout.fillWidth: true
+            Item { Layout.preferredWidth: 1; Layout.fillWidth: true }
+            Button { text: "\u2191"; width: 60; onClicked: console.log('Nav Up') }
+            Item { Layout.preferredWidth: 1; Layout.fillWidth: true }
+        }
+        RowLayout { // Left, Down, Right
+            Layout.fillWidth: true; spacing: 12
+            Item { Layout.fillWidth: true }
+            Button { text: "\u2190"; width: 60; onClicked: console.log('Nav Left') }
+            Button { text: "\u2193"; width: 60; onClicked: console.log('Nav Down') }
+            Button { text: "\u2192"; width: 60; onClicked: console.log('Nav Right') }
+            Item { Layout.fillWidth: true }
+        }
+        // ----------------------------------------------
 
+        Rectangle { Layout.fillWidth: true; height: 1; color: '#444' }
         Button { text: "Center RPM/Speed"; Layout.fillWidth: true; onClicked: { TEL.rpm = 4000; TEL.speed = 110 } }
         Button { text: "Zero"; Layout.fillWidth: true; onClicked: { TEL.rpm = 0; TEL.speed = 0 } }
         Button { text: "Redline"; Layout.fillWidth: true; onClicked: { TEL.rpm = 7800; TEL.speed = 200 } }

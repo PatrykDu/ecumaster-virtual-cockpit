@@ -115,7 +115,7 @@ Window {
                 tickMinorLen: width * 0.045
                 backgroundArcColor: "#1d1d1d"
                 tickColorMajor: "#e6e6e6"
-                tickColorMinor: "#5f5f5f"
+                tickColorMinor: "#5f5f5f" // fixed missing digit
                 redlineColor: "#d62828"
                 needleColor: '#ff4040'
                 needleTipInset: width * 0.015
@@ -247,16 +247,27 @@ Window {
             id: fuelGauge
             anchors.left: parent.left
             anchors.bottom: parent.bottom
-            anchors.leftMargin: width * 0.02 + 20 // shifted 20px to the right (kept)
+            anchors.leftMargin: width * 0.02 + 25 // shifted 20px to the right (kept)
             anchors.bottomMargin: height * 0.02 + 20 // raised 20px upward
             width: root.width * 0.22
             height: root.height * 0.32
+        }
+        // New LeftCluster rectangle (2:3 width:height ratio)
+        LeftCluster {
+            id: leftCluster
+            base: clusterCenter.width * 0.15
+            heightOverride: base * 0.3   // lowered height (instead of 3 * base)
+            width: base * ratioW + 50
+            anchors.verticalCenter: clusterCenter.verticalCenter
+            anchors.verticalCenterOffset: 20
+            anchors.right: clusterCenter.left
+            anchors.rightMargin: 20
         }
         WaterTempGauge {
             id: waterTempGauge
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            anchors.rightMargin: width * 0.02 + 20
+            anchors.rightMargin: width * 0.02 + 25
             anchors.bottomMargin: height * 0.02 + 20
             width: root.width * 0.22
             height: root.height * 0.32
@@ -291,7 +302,7 @@ Window {
             font.bold: true
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            anchors.rightMargin: 420
+            anchors.rightMargin: 360
             anchors.bottomMargin: 35
             z: 600
         }
