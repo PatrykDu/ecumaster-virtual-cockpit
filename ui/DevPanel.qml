@@ -18,21 +18,62 @@ Window {
 
         Text { text: "Developer Panel"; color: 'white'; font.pixelSize: 20; font.bold: true }
 
-        Slider {
-            id: rpmSlider
-            from: 0; to: 7000; stepSize: 10
+        // RPM row: value label on the left, slider on the right
+        RowLayout {
             Layout.fillWidth: true
-            onValueChanged: TEL.rpm = Math.round(value)
+            spacing: 8
+            Text {
+                text: 'RPM: ' + TEL.rpm
+                color: 'white'
+                horizontalAlignment: Text.AlignRight
+                Layout.preferredWidth: 90
+            }
+            Slider {
+                id: rpmSlider
+                from: 0; to: 7000; stepSize: 10
+                Layout.fillWidth: true
+                value: TEL.rpm
+                onValueChanged: TEL.rpm = Math.round(value)
+            }
         }
-        Text { text: 'RPM: ' + TEL.rpm; color: 'white' }
 
-        Slider {
-            id: speedSlider
-            from: 0; to: 300; stepSize: 0.5
+        // Speed row
+        RowLayout {
             Layout.fillWidth: true
-            onValueChanged: TEL.speed = value
+            spacing: 8
+            Text {
+                text: 'Speed: ' + TEL.speed.toFixed(1) + ' km/h'
+                color: 'white'
+                horizontalAlignment: Text.AlignRight
+                Layout.preferredWidth: 90
+            }
+            Slider {
+                id: speedSlider
+                from: 0; to: 300; stepSize: 0.5
+                Layout.fillWidth: true
+                value: TEL.speed
+                onValueChanged: TEL.speed = value
+            }
         }
-        Text { text: 'Speed: ' + TEL.speed.toFixed(1) + ' km/h'; color: 'white' }
+
+        // Fuel row
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            Text {
+                text: 'Fuel: ' + TEL.fuel + ' %'
+                color: 'white'
+                horizontalAlignment: Text.AlignRight
+                Layout.preferredWidth: 90
+            }
+            Slider {
+                id: fuelSlider
+                from: 0; to: 100; stepSize: 1
+                Layout.fillWidth: true
+                value: TEL.fuel
+                onValueChanged: TEL.fuel = Math.round(value)
+            }
+        }
 
         RowLayout {
             Layout.fillWidth: true

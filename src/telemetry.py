@@ -13,6 +13,7 @@ class Telemetry(QObject):
     fogChanged = Signal(bool)
     parkChanged = Signal(bool)
     firstFrameReceived = Signal()
+    fuelChanged = Signal(int)  # 0..100 percent
 
     def __init__(self):
         super().__init__()
@@ -23,6 +24,7 @@ class Telemetry(QObject):
         self._highBeam = False
         self._fog = False
         self._park = False
+        self._fuel = 0  # percent
         self._got_first = False
         self._mtx = QMutex()
 
@@ -110,6 +112,20 @@ class Telemetry(QObject):
 
     park = Property(bool, getPark, setPark, notify=parkChanged)
 
+    # Fuel (0-100%)
+    def getFuel(self) -> int:
+        return self._fuel
+
+    def setFuel(self, v: int):
+        if v < 0: v = 0
+        if v > 100: v = 100
+        if v == self._fuel:
+            return
+        self._fuel = v
+        self.fuelChanged.emit(v)
+
+    fuel = Property(int, getFuel, setFuel, notify=fuelChanged)
+
     def updateFromFrame(self, rpm: int, speed_kmh: float, flags: int):
         with QMutexLocker(self._mtx):
             self.setRpm(rpm)
@@ -119,6 +135,8 @@ class Telemetry(QObject):
             self.setHighBeam(bool(flags & (1 << 2)))
             self.setFog(bool(flags & (1 << 3)))
             self.setPark(bool(flags & (1 << 4)))
+            # Update fuel level from flags (assuming it's encoded in the flags for now)
+            self.setFuel((flags >> 5) & 0xFF)  # Just an example, adjust as necessary
             if not self._got_first:
                 self._got_first = True
                 self.firstFrameReceived.emit()

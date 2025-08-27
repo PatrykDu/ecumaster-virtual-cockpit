@@ -90,7 +90,7 @@ Window {
                 value: TEL.rpm
                 max: 7000
                 min: 0
-                redFrom: 5995
+                redFrom: 5994
                 redTo: 7000
                 label: "" // hide label here
                 majorStep: 1000
@@ -179,7 +179,7 @@ Window {
             anchors.left: parent.left
             anchors.bottom: parent.bottom
             anchors.leftMargin: width * 0.02 + 20 // shifted 20px to the right (kept)
-            anchors.bottomMargin: height * 0.02
+            anchors.bottomMargin: height * 0.02 + 20 // raised 20px upward
             width: root.width * 0.22
             height: root.height * 0.32
         }
