@@ -14,12 +14,16 @@ Window {
 
     property bool splashDone: false
     property bool firstData: false
+    property int odometerValue: 0
+    property real tripValue: 0.0   // changed to real (float)
 
     signal requestStart()
 
     Component.onCompleted: {
         // safety timeout
         splashTimer.start()
+        loadOdometer()
+        odometerPoll.start()
     }
 
     Connections {
@@ -266,6 +270,31 @@ Window {
             anchors.rightMargin: -280 // adjust gap between cluster and water gauge (smaller = more to right)
             width: root.width * 0.18
         }
+
+        Text { // Odometer display bottom-left (adjusted position)
+            id: odometerText
+            text: 'ODO: ' + root.odometerValue
+            color: 'white'
+            font.pixelSize: 28
+            font.bold: true
+            anchors.left: parent.left
+            anchors.bottom: parent.bottom
+            anchors.leftMargin: 340
+            anchors.bottomMargin: 35
+            z: 600
+        }
+        Text { // Trip display bottom-right
+            id: tripText
+            text: 'TRIP: ' + tripValue.toFixed(1)
+            color: 'white'
+            font.pixelSize: 28
+            font.bold: true
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.rightMargin: 420
+            anchors.bottomMargin: 35
+            z: 600
+        }
     }
 
     function redlineForOilTemp(oilTemp) {
@@ -290,4 +319,23 @@ Window {
         }
         return 5994;
     }
+
+    function loadOdometer() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', Qt.resolvedUrl('../data/odometer.json'))
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === XMLHttpRequest.DONE) {
+                try {
+                    var obj = JSON.parse(xhr.responseText);
+                    if (obj) {
+                        if (obj.odometer !== undefined) root.odometerValue = obj.odometer
+                        if (obj.trip !== undefined) root.tripValue = parseFloat(obj.trip)
+                    }
+                } catch(e) {}
+            }
+        }
+        xhr.send()
+    }
+
+    Timer { id: odometerPoll; interval: 5000; repeat: true; running: false; onTriggered: loadOdometer() }
 }
