@@ -50,12 +50,29 @@ def main():
         return 1
 
     win = engine.rootObjects()[0]
-    # Fullscreen frameless
-    win.setFlags(Qt.FramelessWindowHint | Qt.Window)
-    win.showFullScreen()
+    # Set desired size
+    try:
+        win.setWidth(config.WIDTH)
+        win.setHeight(config.HEIGHT)
+    except Exception:
+        pass
 
-    # Start IO thread
-    io_teensy.start(tel)
+    # Unified develop mode
+    dev_mode = os.environ.get("DEVELOP_MODE", "").lower() in ("1", "true", "yes", "on")
+    if dev_mode:
+        win.setFlags(Qt.Window)
+        win.show()
+    else:
+        win.setFlags(Qt.FramelessWindowHint | Qt.Window)
+        win.showFullScreen()
+
+    if dev_mode:
+        # Load developer control panel window (manual telemetry control) and skip IO thread
+        dev_qml = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ui', 'DevPanel.qml'))
+        if os.path.isfile(dev_qml):
+            engine.load(QUrl.fromLocalFile(dev_qml))
+    else:
+        io_teensy.start(tel)
 
     return app.exec()
 

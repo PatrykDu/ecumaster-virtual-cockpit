@@ -9,7 +9,8 @@
       "console": "integratedTerminal",
       "justMyCode": true,
       "env": {
-        "TEENSY_DEV": "/dev/ttyACM0"
+        "TEENSY_DEV": "/dev/ttyACM0",
+        "DEVELOP_MODE": "1"
       }
     }
   ]
