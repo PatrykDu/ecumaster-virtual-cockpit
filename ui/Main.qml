@@ -259,7 +259,7 @@ Window {
             heightOverride: base * 0.3   // lowered height (instead of 3 * base)
             width: base * ratioW + 50
             anchors.verticalCenter: clusterCenter.verticalCenter
-            anchors.verticalCenterOffset: 20
+            anchors.verticalCenterOffset: -30
             anchors.right: clusterCenter.left
             anchors.rightMargin: 20
         }

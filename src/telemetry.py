@@ -1,5 +1,5 @@
 from __future__ import annotations
-from PySide6.QtCore import QObject, Signal, Property, QMutex, QMutexLocker
+from PySide6.QtCore import QObject, Signal, Property, QMutex, QMutexLocker, Slot
 
 # Telemetry object exposed to QML.
 # Provides thread-safe property updates via signals.
@@ -17,6 +17,12 @@ class Telemetry(QObject):
     waterTempChanged = Signal(int)  # coolant temperature (0..150 C)
     oilTempChanged = Signal(int)  # oil temperature (0..160 C typical)
 
+    # Navigation button events for LeftCluster menu
+    navUpEvent = Signal()
+    navDownEvent = Signal()
+    navLeftEvent = Signal()
+    navRightEvent = Signal()
+
     def __init__(self):
         super().__init__()
         self._rpm = 0
@@ -31,6 +37,23 @@ class Telemetry(QObject):
         self._oilTemp = 0  # degrees C (0..160)
         self._got_first = False
         self._mtx = QMutex()
+
+    # --- Navigation Slots (callable from QML) ---
+    @Slot()
+    def invokeNavUp(self):
+        self.navUpEvent.emit()
+
+    @Slot()
+    def invokeNavDown(self):
+        self.navDownEvent.emit()
+
+    @Slot()
+    def invokeNavLeft(self):
+        self.navLeftEvent.emit()
+
+    @Slot()
+    def invokeNavRight(self):
+        self.navRightEvent.emit()
 
     # RPM
     def getRpm(self) -> int:
@@ -194,8 +217,6 @@ class Telemetry(QObject):
         self.updateFromFrame(rpm, speed, (
             (1 if blink else 0) | (1 if not blink else 0) << 1 | (1 << 2 if rpm > 6000 else 0)
         ))
-        # Demo gradual warm-up of oil temp if not driven by real frames
-        # (If real frames present, updateFromFrame already sets values)
         if not self._got_first:
             self.setWaterTemp(int(frac * 150))
             self.setOilTemp(int(frac * 160 * 0.85 + 15))

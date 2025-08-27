@@ -79,15 +79,15 @@ Window {
         RowLayout { // Up button centered
             Layout.fillWidth: true
             Item { Layout.preferredWidth: 1; Layout.fillWidth: true }
-            Button { text: "\u2191"; width: 60; onClicked: console.log('Nav Up') }
+            Button { text: "\u2191"; width: 60; onClicked: TEL.invokeNavUp() }
             Item { Layout.preferredWidth: 1; Layout.fillWidth: true }
         }
         RowLayout { // Left, Down, Right
             Layout.fillWidth: true; spacing: 12
             Item { Layout.fillWidth: true }
-            Button { text: "\u2190"; width: 60; onClicked: console.log('Nav Left') }
-            Button { text: "\u2193"; width: 60; onClicked: console.log('Nav Down') }
-            Button { text: "\u2192"; width: 60; onClicked: console.log('Nav Right') }
+            Button { text: "\u2190"; width: 60; onClicked: TEL.invokeNavLeft() }
+            Button { text: "\u2193"; width: 60; onClicked: TEL.invokeNavDown() }
+            Button { text: "\u2192"; width: 60; onClicked: TEL.invokeNavRight() }
             Item { Layout.fillWidth: true }
         }
         // ----------------------------------------------
