@@ -1,0 +1,16 @@
+[Unit]
+Description=Virtual Gauges (PySide6 QML)
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+# Ustaw poprawną ścieżkę do katalogu repo (przykład poniżej)
+WorkingDirectory=/home/pi/virtual-cluster
+ExecStart=/usr/bin/python3 /home/pi/virtual-cluster/src/main.py
+Restart=on-failure
+Environment=PYTHONUNBUFFERED=1
+Environment=TEENSY_DEV=/dev/ttyACM0
+
+[Install]
+WantedBy=multi-user.target

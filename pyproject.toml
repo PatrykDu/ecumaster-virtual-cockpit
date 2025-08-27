@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "virtual-cluster"
+version = "0.1.0"
+authors = [ { name = "ECU Virtual Cluster" } ]
+description = "Virtual automotive gauges (RPM/Speed) using PySide6/QML and Teensy telemetry"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "PySide6==6.7.2",
+  "pyserial==3.5",
+  "crcmod==1.7"
+]
+
+[project.optional-dependencies]
+_dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where=["src"]

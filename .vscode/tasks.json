@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run vcluster",
+      "type": "shell",
+      "command": "python3 src/main.py",
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}

@@ -205,3 +205,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Qt / PySide generated
+*.qmlc
+*.jsc
+__qt_cache__/
