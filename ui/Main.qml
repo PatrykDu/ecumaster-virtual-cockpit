@@ -141,34 +141,87 @@ Window {
                 layer.enabled: true
                 layer.smooth: true
 
+                // Opaque base circle to hide RPM needle during gradient cross-fade
                 Canvas {
-                    id: innerBg
+                    id: speedInnerBase
                     anchors.fill: parent
                     onPaint: {
-                        var ctx = getContext('2d')
-                        ctx.reset()
-                        var cx = width/2
-                        var cy = height/2
-                        var r = width/2
-                        ctx.translate(cx, cy)
-                        // fill circle gradient
-                        var grad = ctx.createRadialGradient(0,0, r*0.10, 0,0, r)
-                        grad.addColorStop(0, '#141414')
-                        grad.addColorStop(1, '#070707')
-                        ctx.fillStyle = grad
+                        var ctx = getContext('2d'); ctx.reset();
+                        var r = width/2; ctx.translate(r,r)
+                        ctx.fillStyle = '#0d0d0d' // neutral dark fill
                         ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill()
-                        // single thin outline (remove extra inner ring)
-                        ctx.lineWidth = r * 0.018
-                        ctx.strokeStyle = '#2f2f2f'
+                    }
+                    Component.onCompleted: requestPaint()
+                }
+
+                // Dynamic RPM state: 0 neutral, 1 warn (yellow), 2 red
+                property int rpmState: (TEL.rpm >= rpmRing.redFrom ? 2 : (TEL.rpm >= rpmRing.warnFrom && TEL.rpm <= rpmRing.warnTo ? 1 : 0))
+
+                // Three layered gradients with animated cross‑fade
+                Item { anchors.fill: parent; id: gradientStack }
+                Canvas { // neutral (gray)
+                    id: neutralBg
+                    anchors.fill: parent
+                    opacity: speedInner.rpmState === 0 ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 260; easing.type: Easing.InOutQuad } }
+                    onPaint: {
+                        var ctx = getContext('2d'); ctx.reset();
+                        var cx = width/2, cy = height/2, r = width/2; ctx.translate(cx, cy)
+                        var grad = ctx.createRadialGradient(0,0,r*0.10,0,0,r)
+                        grad.addColorStop(0,'#141414'); grad.addColorStop(1,'#070707')
+                        ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill()
+                        ctx.lineWidth = r*0.018; ctx.strokeStyle = '#2f2f2f'
+                        ctx.beginPath(); ctx.arc(0,0,r*0.965,0,Math.PI*2); ctx.stroke()
+                    }
+                    Component.onCompleted: requestPaint()
+                }
+                Canvas { // warn (yellow tint)
+                    id: warnBg
+                    anchors.fill: parent
+                    opacity: speedInner.rpmState === 1 ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 260; easing.type: Easing.InOutQuad } }
+                    onPaint: {
+                        var ctx = getContext('2d'); ctx.reset();
+                        var cx = width/2, cy = height/2, r = width/2; ctx.translate(cx, cy)
+                        var grad = ctx.createRadialGradient(0,0,r*0.05,0,0,r)
+                        // Multi‑stop: dark center -> bright mid ring -> darker outer fade
+                        grad.addColorStop(0.0,'#1e1600')
+                        grad.addColorStop(0.45,'#e2b600')
+                        grad.addColorStop(0.70,'#614800')
+                        grad.addColorStop(1.0,'#120d00')
+                        ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill()
+                        ctx.lineWidth = r*0.018; ctx.strokeStyle = '#b89000'
+                        ctx.beginPath(); ctx.arc(0,0,r*0.965,0,Math.PI*2); ctx.stroke()
+                    }
+                    Component.onCompleted: requestPaint()
+                }
+                Canvas { // red (hot)
+                    id: redBg
+                    anchors.fill: parent
+                    opacity: speedInner.rpmState === 2 ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 260; easing.type: Easing.InOutQuad } }
+                    onPaint: {
+                        var ctx = getContext('2d'); ctx.reset();
+                        var cx = width/2, cy = height/2, r = width/2; ctx.translate(cx, cy)
+                        var grad = ctx.createRadialGradient(0,0,r*0.05,0,0,r)
+                        grad.addColorStop(0.0,'#220000')
+                        grad.addColorStop(0.45,'#d80000')
+                        grad.addColorStop(0.70,'#5c0000')
+                        grad.addColorStop(1.0,'#170000')
+                        ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill()
+                        ctx.lineWidth = r*0.018; ctx.strokeStyle = '#b00000'
                         ctx.beginPath(); ctx.arc(0,0,r*0.965,0,Math.PI*2); ctx.stroke()
                     }
                     Component.onCompleted: requestPaint()
                 }
 
+                // Force repaints when state changes (so newly faded-in canvas has fresh frame)
+                onRpmStateChanged: { neutralBg.requestPaint(); warnBg.requestPaint(); redBg.requestPaint() }
+
                 Column {
                     anchors.centerIn: parent
                     spacing: 4
-                    Text { // speed value centered (no lateral shift when width changes)
+                    Text {
                         id: speedValue
                         text: Math.round(TEL.speed)
                         color: 'white'
@@ -176,7 +229,7 @@ Window {
                         font.bold: true
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
-                    Text { // unit label also centered, independent of number width
+                    Text {
                         text: 'km/h'
                         color: '#888'
                         font.pixelSize: speedInner.width * 0.12
