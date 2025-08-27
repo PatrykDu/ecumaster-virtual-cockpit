@@ -17,6 +17,12 @@ Item {
     property bool menuActive: false
     // Auto-hide inactivity timeout (ms)
     property int inactivityMs: 5000
+    // Suspension submenu animation progress (0..1)
+    property real suspensionProgress: 0
+    // Inactivity inside submenu (ms)
+    property int submenuInactivityMs: 5000
+    // Track automatic exit to decide whether to hide menu afterwards
+    property bool _suspensionAutoExit: false
 
     // Animation metrics
     property real slotSpacing: base * 0.42   // vertical distance between consecutive items
@@ -45,8 +51,10 @@ Item {
         font.bold: true
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: frame.top
-    // When menu hidden, push clock down by 100px (negative margin relative to anchored bottom)
-    anchors.bottomMargin: base * 0.55 - (menuActive ? 0 : 100)
+        // When menu hidden, push clock down by 100px (negative margin relative to anchored bottom)
+        anchors.bottomMargin: base * 0.55 - (menuActive ? 0 : 100)
+        opacity: inSubmenu ? 0 : 1
+        Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
         Behavior on anchors.bottomMargin { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
     }
 
@@ -54,7 +62,8 @@ Item {
     Rectangle {
         id: frame
         anchors.fill: parent
-        opacity: menuActive ? 1 : 0
+        // Hide frame when inside submenu (we show content instead)
+        opacity: (!inSubmenu && menuActive) ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
         color: "#00000000"
         border.color: "#00000000" // disable default border
@@ -119,7 +128,7 @@ Item {
     Item {
         id: menuLayer
         anchors.fill: parent
-        opacity: menuActive ? 1 : 0
+        opacity: menuActive && !inSubmenu ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
         // Center Y reference for selected item
         property real centerY: frame.y + frame.height/2
@@ -156,10 +165,120 @@ Item {
         }
     }
 
+    // Submenu content layer (e.g., suspension)
+    Item {
+        id: submenuLayer
+        anchors.fill: parent
+        visible: inSubmenu
+        opacity: inSubmenu ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+        // Compact container for suspension diagram + values
+        readonly property real valFL: (root.FL !== undefined ? root.FL : 0)
+        readonly property real valFR: (root.FR !== undefined ? root.FR : 0)
+        readonly property real valRL: (root.RL !== undefined ? root.RL : 0)
+        readonly property real valRR: (root.RR !== undefined ? root.RR : 0)
+
+        Item {
+            id: suspensionContainer
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: -base * 0.6
+            width: parent.width * 0.7
+            height: width // square area
+            opacity: root.currentSubmenu === 'suspension' ? root.suspensionProgress : 0
+            scale: root.suspensionProgress
+            visible: root.currentSubmenu === 'suspension' && root.suspensionProgress > 0.001
+
+            Image {
+                id: suspensionImage
+                anchors.fill: parent
+                fillMode: Image.PreserveAspectFit
+                source: Qt.resolvedUrl('../../assets/suspension.png')
+                smooth: true
+            }
+            // Wheel values in corners
+            property real wheelFont: base * 0.32
+            Text { // FL
+                text: submenuLayer.valFL; color: 'white'; font.pixelSize: suspensionContainer.wheelFont; font.bold: true
+                anchors.left: parent.left; anchors.top: parent.top
+                anchors.leftMargin: base * -0.10; anchors.topMargin: base * 0.10
+            }
+            Text { // FR
+                text: submenuLayer.valFR; color: 'white'; font.pixelSize: suspensionContainer.wheelFont; font.bold: true
+                anchors.right: parent.right; anchors.top: parent.top
+                anchors.rightMargin: base * -0.10; anchors.topMargin: base * 0.10
+            }
+            Text { // RL
+                text: submenuLayer.valRL; color: 'white'; font.pixelSize: suspensionContainer.wheelFont; font.bold: true
+                anchors.left: parent.left; anchors.bottom: parent.bottom
+                anchors.leftMargin: base * -0.10; anchors.bottomMargin: base * 0.05
+            }
+            Text { // RR
+                text: submenuLayer.valRR; color: 'white'; font.pixelSize: suspensionContainer.wheelFont; font.bold: true
+                anchors.right: parent.right; anchors.bottom: parent.bottom
+                anchors.rightMargin: base * -0.10; anchors.bottomMargin: base * 0.05
+            }
+        }
+    }
+
+    // State: whether we're inside a submenu (e.g., suspension)
+    property bool inSubmenu: false
+    // Track which submenu is active
+    property string currentSubmenu: ''
+
+    // Animations for suspension submenu
+    NumberAnimation { id: suspensionShow; target: root; property: 'suspensionProgress'; duration: 260; easing.type: Easing.OutCubic }
+    NumberAnimation { id: suspensionHide; target: root; property: 'suspensionProgress'; duration: 220; easing.type: Easing.InCubic; onStopped: {
+            if (root.suspensionProgress === 0) {
+                root.inSubmenu = false;
+                root.currentSubmenu = '';
+                submenuInactivityTimer.stop();
+                if (root._suspensionAutoExit) {
+                    root.menuActive = false; // show only clock
+                } else {
+                    root.menuActive = true; // keep menu visible on manual exit
+                    inactivityTimer.restart();
+                }
+                root._suspensionAutoExit = false;
+            }
+        } }
+
+    // Timer for auto-exit from suspension submenu
+    Timer {
+        id: submenuInactivityTimer
+        interval: root.submenuInactivityMs
+        repeat: false
+        running: false
+        onTriggered: {
+            if (root.currentSubmenu === 'suspension' && root.inSubmenu) {
+                exitSuspension(true);
+            }
+        }
+    }
+
+    function enterSuspension() {
+        root.currentSubmenu = 'suspension';
+        root.inSubmenu = true;
+        root.menuActive = true; // keep menu state for return
+        inactivityTimer.stop();
+        suspensionHide.stop();
+        root.suspensionProgress = 0;
+        suspensionShow.from = 0; suspensionShow.to = 1; suspensionShow.start();
+    submenuInactivityTimer.restart();
+    }
+    function exitSuspension(auto) {
+        root._suspensionAutoExit = (auto === true);
+        suspensionShow.stop();
+        suspensionHide.from = root.suspensionProgress; suspensionHide.to = 0; suspensionHide.start();
+        submenuInactivityTimer.stop();
+    }
+
     // Listen to navigation signals from TEL
     Connections {
         target: TEL
         function onNavUpEvent() {
+            if (root.inSubmenu) return; // ignore inside submenu
             if (!root.menuActive) {
                 root.menuActive = true;
                 inactivityTimer.restart();
@@ -169,6 +288,7 @@ Item {
             inactivityTimer.restart();
         }
         function onNavDownEvent() {
+            if (root.inSubmenu) return;
             if (!root.menuActive) {
                 root.menuActive = true;
                 inactivityTimer.restart();
@@ -178,9 +298,34 @@ Item {
             inactivityTimer.restart();
         }
         function onNavLeftEvent() {
+            if (root.inSubmenu) {
+                if (root.currentSubmenu === 'suspension') {
+                    exitSuspension(false);
+                } else {
+                    // generic future submenu exit
+                    root.inSubmenu = false;
+                    root.currentSubmenu = '';
+                    root.menuActive = true;
+                    inactivityTimer.restart();
+                }
+                return;
+            }
             if (root.menuActive) {
                 root.menuActive = false;
                 inactivityTimer.stop();
+            }
+        }
+        function onNavRightEvent() {
+            if (root.inSubmenu) return; // reserved for future deeper actions
+            if (!root.menuActive) { // if menu hidden, right could also reveal (optional)
+                root.menuActive = true;
+                inactivityTimer.restart();
+                return;
+            }
+            // Enter submenu if selection matches
+            var sel = root.menuItems[root.menuIndex];
+            if (sel === 'suspension') {
+                enterSuspension();
             }
         }
     }

@@ -27,7 +27,7 @@ qInstallMessageHandler(_qt_msg_handler)
 
 
 def main():
-    # Allow QML XMLHttpRequest to read local files (odometer.json)
+    # Allow QML XMLHttpRequest to read local files (data.json)
     os.environ.setdefault("QML_XHR_ALLOW_FILE_READ", "1")
     os.environ.setdefault("QT_QUICK_BACKEND", "software")  # fallback safety; can remove if GPU OK
     app = QGuiApplication(sys.argv)

@@ -333,7 +333,7 @@ Window {
 
     function loadOdometer() {
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', Qt.resolvedUrl('../data/odometer.json'))
+    xhr.open('GET', Qt.resolvedUrl('../data/data.json'))
         xhr.onreadystatechange = function() {
             if (xhr.readyState === XMLHttpRequest.DONE) {
                 try {
