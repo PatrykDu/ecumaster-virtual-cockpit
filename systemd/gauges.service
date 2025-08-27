@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=pi
-# Ustaw poprawną ścieżkę do katalogu repo (przykład poniżej)
+# Set the correct path to the repository directory (example below)
 WorkingDirectory=/home/pi/virtual-cluster
 ExecStart=/usr/bin/python3 /home/pi/virtual-cluster/src/main.py
 Restart=on-failure

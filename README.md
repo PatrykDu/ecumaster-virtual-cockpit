@@ -1,50 +1,50 @@
 # Virtual Cluster (PySide6/QML)
 
-Wirtualne zegary silnika (RPM + Speed) z danymi z Teensy 4.1 (EMU Black CAN) lub trybem DEMO.
+Virtual engine cluster (RPM + Speed) with data from a Teensy 4.1 (EMU Black CAN) or a DEMO mode fallback.
 
-## Funkcje
-- PySide6 + QML (pełnoekranowe, 60 FPS)
-- Splash + płynne przejście do sceny głównej
-- Dwie tarcze: RPM (0–8000, czerwone od 6500), prędkość (0–220 km/h)
-- Ikony: kierunki L/P, długie, przeciwmgłowe, hamulec/park (placeholdery)
-- Automatyczne przełączenie na DEMO jeśli brak Teensy / portu
-- Parametry rozdzielczości w `config.py` (1920×720 domyślnie; można zmienić na 1280×480)
+## Features
+- PySide6 + QML (fullscreen, target 60 FPS)
+- Splash screen + smooth transition to the main scene
+- Two dials: RPM (0–8000, red from 6500), Speed (0–220 km/h)
+- Icons: turn signals L/R, high beam, fog, park/brake (placeholders)
+- Automatic switch to DEMO if Teensy / serial port is not available
+- Resolution parameters in `config.py` (1920×720 default; can change to 1280×480)
 
-## Wymagania
+## Requirements
 Python 3.11+
 
-## Instalacja (PC / Linux)
+## Installation (PC / Linux)
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python src/main.py
 ```
-Tryb DEMO uruchomi się automatycznie (brak portu /dev/ttyACM0).
+DEMO mode starts automatically if `/dev/ttyACM0` is not present.
 
-## Instalacja na Raspberry Pi (Raspberry Pi OS Lite 64-bit)
+## Installation on Raspberry Pi (Raspberry Pi OS Lite 64-bit)
 ```bash
 sudo apt update
 sudo apt install -y python3-venv python3-pip libegl1 libgles2 libxcb-xinerama0
-cd ~/<katalog_repo>
+cd ~/<repo_directory>
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python src/main.py  # test
+python src/main.py  # test run
 ```
 
-### Ustawienia HDMI w `/boot/firmware/cmdline.txt` (Pi OS Bookworm)
-Dodaj do istniejącej linii (nie w nowej):
+### HDMI settings in `/boot/firmware/cmdline.txt` (Pi OS Bookworm)
+Append to the existing single line (do NOT create a new line):
 ```
 video=HDMI-A-1:1920x720@60D quiet loglevel=0 vt.global_cursor_default=0
 ```
-Dla 1280×480:
+For 1280×480:
 ```
 video=HDMI-A-1:1280x480@60D quiet loglevel=0 vt.global_cursor_default=0
 ```
 
 ### Autostart (systemd)
-Zaktualizuj ścieżkę w `systemd/gauges.service` jeśli repo jest w innej lokalizacji niż `/home/pi/virtual-cluster`.
+Update the path in `systemd/gauges.service` if the repository is not at `/home/pi/virtual-cluster`.
 ```bash
 sudo cp systemd/gauges.service /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -52,42 +52,42 @@ sudo systemctl enable gauges.service
 sudo systemctl start gauges.service
 ```
 
-## Zmiana rozdzielczości
-Edytuj `config.py`:
+## Changing resolution
+Edit `config.py`:
 ```python
 WIDTH = 1280
 HEIGHT = 480
 ```
-Uruchom ponownie aplikację.
+Restart the application.
 
-## Zmienne środowiskowe
-`TEENSY_DEV` – niestandardowa ścieżka urządzenia (np. `/dev/ttyACM1`).
+## Environment variables
+`TEENSY_DEV` – custom serial device path (e.g. `/dev/ttyACM1`).
 
-## Format ramki z Teensy
-Binarnie (little-endian) 14 bajtów:
+## Frame format from Teensy
+Binary (little-endian) 14 bytes:
 ```
 MAGIC(u16)=0xA55A, VER(u8)=1, LEN(u8)=14, RPM(u16), VSS_cm_s(u16), FLAGS(u16), CRC16-X25(u16)
 ```
-FLAGS bity:
+FLAGS bits:
 ```
-0: Left
-1: Right
-2: HighBeam
+0: Left turn
+1: Right turn
+2: High beam
 3: Fog
-4: Park/Brake
+4: Park / Brake
 ```
-Prędkość: `km/h = (VSS_cm_s / 100.0) * 0.036`.
+Speed: `km/h = (VSS_cm_s / 100.0) * 0.036`.
 
-## Testy manualne
-1. DEMO: Odłącz Teensy / brak portu. Uruchom `python src/main.py` → tarcze animują się, ikonki migają.
-2. Serial: Podłącz Teensy, upewnij się że widoczny `/dev/ttyACM0`, uruchom ponownie. W logu: `[io_teensy] Opened serial ...`. Wartości odpowiadają realnym danym.
-3. Inny port: `export TEENSY_DEV=/dev/ttyACM1 && python src/main.py`.
-4. Splash: Logo do 1.2 s lub krócej jeśli przyjdzie pierwsza ramka.
+## Manual tests
+1. DEMO: Disconnect Teensy / missing port. Run `python src/main.py` → dials animate, icons blink.
+2. Serial: Connect Teensy, ensure `/dev/ttyACM0` exists, restart. Log shows `[io_teensy] Opened serial ...`. Values update with real data.
+3. Different port: `export TEENSY_DEV=/dev/ttyACM1 && python src/main.py`.
+4. Splash: Logo up to 1.2 s or shorter if first frame arrives earlier.
 
 ## TODO
-- Backlight: BL_EN / DIM przez dodatkowe komendy do Teensy.
-- Lepsze ikonki (SVG / Path) i animacje.
-- Limit FPS / vsync tuning.
+- Backlight: BL_EN / DIM via additional commands to Teensy.
+- Better icons (SVG / Path) and animations.
+- FPS / vsync tuning or capping.
 
-## Licencja
-MIT (domyślnie – dostosuj w razie potrzeby).
+## License
+MIT (adjust if needed).

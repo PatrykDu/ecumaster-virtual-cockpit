@@ -172,5 +172,16 @@ Window {
                 }
             }
         }
+
+        // Fuel gauge (extracted component) bottom-left
+        FuelGauge {
+            id: fuelGauge
+            anchors.left: parent.left
+            anchors.bottom: parent.bottom
+            anchors.leftMargin: width * 0.02 + 20 // shifted 20px to the right (kept)
+            anchors.bottomMargin: height * 0.02
+            width: root.width * 0.22
+            height: root.height * 0.32
+        }
     }
 }

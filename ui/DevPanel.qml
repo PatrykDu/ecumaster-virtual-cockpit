@@ -20,7 +20,7 @@ Window {
 
         Slider {
             id: rpmSlider
-            from: 0; to: 8000; stepSize: 10
+            from: 0; to: 7000; stepSize: 10
             Layout.fillWidth: true
             onValueChanged: TEL.rpm = Math.round(value)
         }
@@ -28,7 +28,7 @@ Window {
 
         Slider {
             id: speedSlider
-            from: 0; to: 220; stepSize: 0.5
+            from: 0; to: 300; stepSize: 0.5
             Layout.fillWidth: true
             onValueChanged: TEL.speed = value
         }
