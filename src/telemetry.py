@@ -15,6 +15,7 @@ class Telemetry(QObject):
     firstFrameReceived = Signal()
     fuelChanged = Signal(int)  # 0..100 percent
     waterTempChanged = Signal(int)  # coolant temperature (0..150 C)
+    oilTempChanged = Signal(int)  # oil temperature (0..160 C typical)
 
     def __init__(self):
         super().__init__()
@@ -27,6 +28,7 @@ class Telemetry(QObject):
         self._park = False
         self._fuel = 0  # percent
         self._waterTemp = 0  # degrees C (0..150)
+        self._oilTemp = 0  # degrees C (0..160)
         self._got_first = False
         self._mtx = QMutex()
 
@@ -142,6 +144,20 @@ class Telemetry(QObject):
 
     waterTemp = Property(int, getWaterTemp, setWaterTemp, notify=waterTempChanged)
 
+    # Oil temperature (0-160 C)
+    def getOilTemp(self) -> int:
+        return self._oilTemp
+
+    def setOilTemp(self, v: int):
+        if v < 0: v = 0
+        if v > 160: v = 160
+        if v == self._oilTemp:
+            return
+        self._oilTemp = v
+        self.oilTempChanged.emit(v)
+
+    oilTemp = Property(int, getOilTemp, setOilTemp, notify=oilTempChanged)
+
     def updateFromFrame(self, rpm: int, speed_kmh: float, flags: int):
         with QMutexLocker(self._mtx):
             self.setRpm(rpm)
@@ -155,6 +171,9 @@ class Telemetry(QObject):
             self.setFuel((flags >> 5) & 0xFF)
             # Water temp demo mapping (reuse fuel for now if not present)
             self.setWaterTemp(min(150, int(self._fuel * 1.5)))
+            # Oil temp typically lags water temp; simple smoothing / offset demo
+            est_oil = int(self._waterTemp * 0.9 + 10)
+            self.setOilTemp(est_oil)
             if not self._got_first:
                 self._got_first = True
                 self.firstFrameReceived.emit()
@@ -175,3 +194,8 @@ class Telemetry(QObject):
         self.updateFromFrame(rpm, speed, (
             (1 if blink else 0) | (1 if not blink else 0) << 1 | (1 << 2 if rpm > 6000 else 0)
         ))
+        # Demo gradual warm-up of oil temp if not driven by real frames
+        # (If real frames present, updateFromFrame already sets values)
+        if not self._got_first:
+            self.setWaterTemp(int(frac * 150))
+            self.setOilTemp(int(frac * 160 * 0.85 + 15))

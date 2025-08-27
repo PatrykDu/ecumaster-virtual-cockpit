@@ -198,6 +198,7 @@ Item {
                     // Icon background: keep blue when cold, red when hot, pure white in neutral band
                     color: (root.tempC < root.lowTempThreshold) ? root.lowTempColor : (root.tempC > root.highTempThreshold ? root.highTempColor : 'white')
                     radius: 4
+                    Behavior on color { ColorAnimation { duration: 180 } }
                 }
                 Image {
                     anchors.fill: parent

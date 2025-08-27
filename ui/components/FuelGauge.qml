@@ -185,6 +185,7 @@ Item {
                     color: root.level < lowFuelThreshold ? lowFuelColor : 'white'
                     radius: 4
                     visible: true
+                    Behavior on color { ColorAnimation { duration: 180 } }
                 }
                 Image {
                     anchors.fill: parent

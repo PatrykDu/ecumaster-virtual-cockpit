@@ -7,7 +7,7 @@ Window {
     id: dev
     title: "Dev Panel"
     width: 420
-    height: 560
+    height: 600
     visible: true
     color: "#202225"
 
@@ -20,83 +20,41 @@ Window {
 
         // RPM row: value label on the left, slider on the right
         RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-            Text {
-                text: 'RPM: ' + TEL.rpm
-                color: 'white'
-                horizontalAlignment: Text.AlignRight
-                Layout.preferredWidth: 90
-            }
-            Slider {
-                id: rpmSlider
-                from: 0; to: 7000; stepSize: 10
-                Layout.fillWidth: true
-                value: TEL.rpm
-                onValueChanged: TEL.rpm = Math.round(value)
-            }
+            Layout.fillWidth: true; spacing: 8
+            Text { text: 'RPM: ' + TEL.rpm; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
+            Slider { id: rpmSlider; from: 0; to: 7000; stepSize: 10; Layout.fillWidth: true; value: TEL.rpm; onValueChanged: TEL.rpm = Math.round(value) }
         }
 
         // Speed row
         RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-            Text {
-                text: 'Speed: ' + TEL.speed.toFixed(1) + ' km/h'
-                color: 'white'
-                horizontalAlignment: Text.AlignRight
-                Layout.preferredWidth: 90
-            }
-            Slider {
-                id: speedSlider
-                from: 0; to: 300; stepSize: 0.5
-                Layout.fillWidth: true
-                value: TEL.speed
-                onValueChanged: TEL.speed = value
-            }
+            Layout.fillWidth: true; spacing: 8
+            Text { text: 'Speed: ' + TEL.speed.toFixed(1) + ' km/h'; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
+            Slider { id: speedSlider; from: 0; to: 300; stepSize: 0.5; Layout.fillWidth: true; value: TEL.speed; onValueChanged: TEL.speed = value }
         }
 
         // Fuel row
         RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-            Text {
-                text: 'Fuel: ' + TEL.fuel + ' %'
-                color: 'white'
-                horizontalAlignment: Text.AlignRight
-                Layout.preferredWidth: 90
-            }
-            Slider {
-                id: fuelSlider
-                from: 0; to: 100; stepSize: 1
-                Layout.fillWidth: true
-                value: TEL.fuel
-                onValueChanged: TEL.fuel = Math.round(value)
-            }
+            Layout.fillWidth: true; spacing: 8
+            Text { text: 'Fuel: ' + TEL.fuel + ' %'; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
+            Slider { id: fuelSlider; from: 0; to: 100; stepSize: 1; Layout.fillWidth: true; value: TEL.fuel; onValueChanged: TEL.fuel = Math.round(value) }
         }
 
-        // Water temp row
+        // Water temp row (renamed label)
         RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-            Text {
-                text: 'Temp: ' + TEL.waterTemp + ' °C'
-                color: 'white'
-                horizontalAlignment: Text.AlignRight
-                Layout.preferredWidth: 90
-            }
-            Slider {
-                id: waterTempSlider
-                from: 0; to: 150; stepSize: 1
-                Layout.fillWidth: true
-                value: TEL.waterTemp
-                onValueChanged: TEL.waterTemp = Math.round(value)
-            }
+            Layout.fillWidth: true; spacing: 8
+            Text { text: 'Water Temp: ' + TEL.waterTemp + ' °C'; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
+            Slider { id: waterTempSlider; from: 0; to: 150; stepSize: 1; Layout.fillWidth: true; value: TEL.waterTemp; onValueChanged: TEL.waterTemp = Math.round(value) }
+        }
+
+        // Oil temp row (range adjusted to 0-150)
+        RowLayout {
+            Layout.fillWidth: true; spacing: 8
+            Text { text: 'Oil Temp: ' + TEL.oilTemp + ' °C'; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
+            Slider { id: oilTempSlider; from: 0; to: 150; stepSize: 1; Layout.fillWidth: true; value: TEL.oilTemp; onValueChanged: TEL.oilTemp = Math.round(value) }
         }
 
         RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
+            Layout.fillWidth: true; spacing: 8
             Repeater {
                 model: [
                     { key: 'leftBlink', label: 'Left' },
@@ -116,35 +74,11 @@ Window {
 
         Rectangle { Layout.fillWidth: true; height: 1; color: '#444' }
 
-        Button {
-            text: "Center RPM/Speed"
-            Layout.fillWidth: true
-            onClicked: { TEL.rpm = 4000; TEL.speed = 110 }
-        }
-        Button {
-            text: "Zero"
-            Layout.fillWidth: true
-            onClicked: { TEL.rpm = 0; TEL.speed = 0 }
-        }
-        Button {
-            text: "Redline"
-            Layout.fillWidth: true
-            onClicked: { TEL.rpm = 7800; TEL.speed = 200 }
-        }
-        Button {
-            text: "Blink All"
-            Layout.fillWidth: true
-            onClicked: {
-                TEL.leftBlink = true; TEL.rightBlink = true; TEL.highBeam = true; TEL.fog = true; TEL.park = true
-            }
-        }
-        Button {
-            text: "Clear All"
-            Layout.fillWidth: true
-            onClicked: {
-                TEL.leftBlink = false; TEL.rightBlink = false; TEL.highBeam = false; TEL.fog = false; TEL.park = false
-            }
-        }
+        Button { text: "Center RPM/Speed"; Layout.fillWidth: true; onClicked: { TEL.rpm = 4000; TEL.speed = 110 } }
+        Button { text: "Zero"; Layout.fillWidth: true; onClicked: { TEL.rpm = 0; TEL.speed = 0 } }
+        Button { text: "Redline"; Layout.fillWidth: true; onClicked: { TEL.rpm = 7800; TEL.speed = 200 } }
+        Button { text: "Blink All"; Layout.fillWidth: true; onClicked: { TEL.leftBlink = true; TEL.rightBlink = true; TEL.highBeam = true; TEL.fog = true; TEL.park = true } }
+        Button { text: "Clear All"; Layout.fillWidth: true; onClicked: { TEL.leftBlink = false; TEL.rightBlink = false; TEL.highBeam = false; TEL.fog = false; TEL.park = false } }
         Item { Layout.fillHeight: true }
     }
 }

@@ -173,7 +173,6 @@ Window {
             }
         }
 
-        // Fuel gauge (extracted component) bottom-left
         FuelGauge {
             id: fuelGauge
             anchors.left: parent.left
@@ -183,7 +182,6 @@ Window {
             width: root.width * 0.22
             height: root.height * 0.32
         }
-        // Water temp gauge bottom-right (mirrored counterpart)
         WaterTempGauge {
             id: waterTempGauge
             anchors.right: parent.right
@@ -193,6 +191,14 @@ Window {
             width: root.width * 0.22
             height: root.height * 0.32
             tempC: TEL ? TEL.waterTemp : 0
+        }
+        RightCluster {
+            id: rightCluster
+            anchors.bottom: waterTempGauge.top
+            anchors.bottomMargin: 24
+            anchors.right: waterTempGauge.left
+            anchors.rightMargin: -280 // adjust gap between cluster and water gauge (smaller = more to right)
+            width: root.width * 0.18
         }
     }
 }
