@@ -13,6 +13,10 @@ Item {
     // Menu options
     property var menuItems: ["suspension", "reset trip", "exhaust", "settings"]
     property int menuIndex: 0
+    // Start with menu hidden; first Up/Down will reveal it
+    property bool menuActive: false
+    // Auto-hide inactivity timeout (ms)
+    property int inactivityMs: 5000
 
     // Animation metrics
     property real slotSpacing: base * 0.42   // vertical distance between consecutive items
@@ -23,6 +27,14 @@ Item {
     // Time
     property date now: new Date()
     Timer { interval: 1000; running: true; repeat: true; onTriggered: root.now = new Date() }
+    // Inactivity timer for auto-hiding menu
+    Timer {
+        id: inactivityTimer
+        interval: root.inactivityMs
+        running: root.menuActive
+        repeat: false
+        onTriggered: root.menuActive = false
+    }
 
     // Clock above frame (fixed)
     Text {
@@ -33,13 +45,17 @@ Item {
         font.bold: true
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: frame.top
-        anchors.bottomMargin: base * 0.55
+    // When menu hidden, push clock down by 100px (negative margin relative to anchored bottom)
+    anchors.bottomMargin: base * 0.55 - (menuActive ? 0 : 100)
+        Behavior on anchors.bottomMargin { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
     }
 
     // Frame (selection window)
     Rectangle {
         id: frame
         anchors.fill: parent
+        opacity: menuActive ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
         color: "#00000000"
         border.color: "#00000000" // disable default border
         border.width: 0
@@ -103,6 +119,8 @@ Item {
     Item {
         id: menuLayer
         anchors.fill: parent
+        opacity: menuActive ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
         // Center Y reference for selected item
         property real centerY: frame.y + frame.height/2
         Repeater {
@@ -141,7 +159,29 @@ Item {
     // Listen to navigation signals from TEL
     Connections {
         target: TEL
-        function onNavUpEvent() { root.menuIndex = (root.menuIndex - 1 + root.menuItems.length) % root.menuItems.length }
-        function onNavDownEvent() { root.menuIndex = (root.menuIndex + 1) % root.menuItems.length }
+        function onNavUpEvent() {
+            if (!root.menuActive) {
+                root.menuActive = true;
+                inactivityTimer.restart();
+                return;
+            }
+            root.menuIndex = (root.menuIndex - 1 + root.menuItems.length) % root.menuItems.length;
+            inactivityTimer.restart();
+        }
+        function onNavDownEvent() {
+            if (!root.menuActive) {
+                root.menuActive = true;
+                inactivityTimer.restart();
+                return;
+            }
+            root.menuIndex = (root.menuIndex + 1) % root.menuItems.length;
+            inactivityTimer.restart();
+        }
+        function onNavLeftEvent() {
+            if (root.menuActive) {
+                root.menuActive = false;
+                inactivityTimer.stop();
+            }
+        }
     }
 }
