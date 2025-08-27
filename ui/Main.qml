@@ -73,61 +73,102 @@ Window {
         opacity: root.splashDone ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.OutQuad } }
 
-        // Gauges layout
-        RowLayout {
-            id: gaugesRow
-            anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 40 }
-            spacing: width * 0.15
+        // Concentric layout: Outer RPM ring + inner speed circle
+        Item {
+            id: clusterCenter
+            // replace centerIn with explicit centers + downward offset
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: parent.height * 0.10 // shift down (tune as needed)
+            width: parent.height * 1.20 // size of the center gauge
+            height: width
 
+            // Outer RPM gauge (ring only)
             Gauge {
-                id: rpmGauge
-                Layout.fillWidth: true
-                Layout.fillHeight: true
+                id: rpmRing
+                anchors.fill: parent
                 value: TEL.rpm
-                max: 8000
+                max: 7000
                 min: 0
-                redFrom: 6500
-                redTo: 8000
-                label: "RPM"
+                redFrom: 5995
+                redTo: 7000
+                label: "" // hide label here
                 majorStep: 1000
                 minorStep: 500
+                abbreviateThousands: true
+                showValueInThousands: true
+                showCenterValue: false
+                showCenterLabel: false
+                useTextLabels: true
+                drawCanvasLabels: false
+                fontSizeLabels: width * 0.07    // RPM number size
+                labelDistance: width * 0.05    // adjust inward so they sit nicely
+                ringWidth: width * 0.04
+                tickMajorLen: width * 0.075
+                tickMinorLen: width * 0.045
+                backgroundArcColor: "#1d1d1d"
+                tickColorMajor: "#e6e6e6"
+                tickColorMinor: "#5f5f5f"
+                redlineColor: "#d62828"
+                needleColor: '#ff4040'
+                needleTipInset: width * 0.015
+                needleTail: width * 0.13
+                needleThickness: width * 0.1
+                warnFrom: 5300
+                warnTo: 6000
+                warnColor: '#ffcc33'
             }
-            Gauge {
-                id: speedGauge
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                value: TEL.speed
-                max: 220
-                min: 0
-                redFrom: 9999 // no red
-                redTo: 10000
-                label: "km/h"
-                majorStep: 20
-                minorStep: 10
-            }
-        }
 
-        // Icons bar
-        Row {
-            id: iconBar
-            spacing: 32
-            anchors { bottom: parent.bottom; horizontalCenter: parent.horizontalCenter; bottomMargin: 28 }
-            height: 64
+            // Inner circle (speed display) - simplified (only one circle now)
+            Item {
+                id: speedInner
+                anchors.centerIn: parent
+                width: parent.width * 0.58
+                height: width
+                layer.enabled: true
+                layer.smooth: true
 
-            Repeater {
-                model: [
-                    { name: "L", active: TEL.leftBlink, color: "#00ff66" },
-                    { name: "R", active: TEL.rightBlink, color: "#00ff66" },
-                    { name: "HB", active: TEL.highBeam, color: "#4488ff" },
-                    { name: "FG", active: TEL.fog, color: "#88ff44" },
-                    { name: "P", active: TEL.park, color: "#ff3333" }
-                ]
-                delegate: Rectangle {
-                    width: 72; height: 48; radius: 8
-                    color: modelData.active ? modelData.color : "#222"
-                    border.color: modelData.active ? modelData.color : "#444"
-                    border.width: 2
-                    Text { anchors.centerIn: parent; text: modelData.name; color: modelData.active ? "black" : "#aaa"; font.pixelSize: 22 }
+                Canvas {
+                    id: innerBg
+                    anchors.fill: parent
+                    onPaint: {
+                        var ctx = getContext('2d')
+                        ctx.reset()
+                        var cx = width/2
+                        var cy = height/2
+                        var r = width/2
+                        ctx.translate(cx, cy)
+                        // fill circle gradient
+                        var grad = ctx.createRadialGradient(0,0, r*0.10, 0,0, r)
+                        grad.addColorStop(0, '#141414')
+                        grad.addColorStop(1, '#070707')
+                        ctx.fillStyle = grad
+                        ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill()
+                        // single thin outline (remove extra inner ring)
+                        ctx.lineWidth = r * 0.018
+                        ctx.strokeStyle = '#2f2f2f'
+                        ctx.beginPath(); ctx.arc(0,0,r*0.965,0,Math.PI*2); ctx.stroke()
+                    }
+                    Component.onCompleted: requestPaint()
+                }
+
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 4
+                    Text { // speed value centered (no lateral shift when width changes)
+                        id: speedValue
+                        text: Math.round(TEL.speed)
+                        color: 'white'
+                        font.pixelSize: speedInner.width * 0.40
+                        font.bold: true
+                        anchors.horizontalCenter: parent.horizontalCenter
+                    }
+                    Text { // unit label also centered, independent of number width
+                        text: 'km/h'
+                        color: '#888'
+                        font.pixelSize: speedInner.width * 0.12
+                        anchors.horizontalCenter: parent.horizontalCenter
+                    }
                 }
             }
         }

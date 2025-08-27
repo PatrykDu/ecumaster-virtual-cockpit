@@ -8,15 +8,62 @@ Item {
     property real value: 0
     property real majorStep: 10
     property real minorStep: 5
-    property real startAngle: -220
-    property real endAngle: 40
+    // Adjust angles (removed +90° canvas rotations): was -220..40 with rotate; now -130..130
+    property real startAngle: -130
+    property real endAngle: 130
+    property real orientationOffset: -90 // degrees: rotate whole gauge so 0 is up
     property real redFrom: 80
     property real redTo: 100
+    // New warning zone
+    property real warnFrom: -1
+    property real warnTo: -1
+    property color warnColor: '#e6c400'
     property string label: ""
+
+    // New customizable styling properties
+    property real ringWidth: 26
+    property real tickMajorLen: 50
+    property real tickMinorLen: 28
+    property int fontSizeLabels: 32
+    property int fontSizeValue: 96
+    property color backgroundArcColor: '#262626'
+    property color redlineColor: '#ff3333'
+    property color tickColorMajor: '#d0d0d0'
+    property color tickColorMinor: '#808080'
+    property color centerValueColor: 'white'
+    property color centerLabelColor: '#bbbbbb'
+    property bool abbreviateThousands: false   // for scales like RPM 0..8000 show 0..8
+    property bool showValueInThousands: false  // center value division
+    // New flags to optionally hide built‑in center texts (for nested inner circle usage)
+    property bool showCenterValue: true
+    property bool showCenterLabel: true
+    // New: independent radial distance for labels (instead of derived from font size)
+    property real labelOffsetFactor: 0.9 // kept for backwards compatibility (unused now)
+    property real labelDistance: 42       // px distance inward from end of major tick
+    // New: control whether labels are painted on canvas or via Text items
+    property bool drawCanvasLabels: true
+    property bool useTextLabels: false
+
+    // Needle customization
+    property color needleColor: '#ff3333'
+    property real needleTipInset: 14       // distance from outer radius to needle tip
+    property real needleTail: 60           // tail length behind center (px)
+    property real needleThickness: 14      // total thickness of needle body (px)
 
     property real radius: Math.min(width, height)/2 * 0.95
 
     width: 600; height: 600
+
+    onFontSizeLabelsChanged: { scaleCanvas.requestPaint(); labelsRepeater.model = labelsRepeater.model } // force reposition
+    onLabelOffsetFactorChanged: scaleCanvas.requestPaint()
+    onLabelDistanceChanged: scaleCanvas.requestPaint()
+    onTickMajorLenChanged: scaleCanvas.requestPaint()
+    onTickMinorLenChanged: scaleCanvas.requestPaint()
+    onRingWidthChanged: scaleCanvas.requestPaint()
+    onNeedleColorChanged: needleCanvas.requestPaint()
+    onNeedleTipInsetChanged: needleCanvas.requestPaint()
+    onNeedleTailChanged: needleCanvas.requestPaint()
+    onNeedleThicknessChanged: needleCanvas.requestPaint()
 
     Canvas {
         id: scaleCanvas
@@ -27,81 +74,106 @@ Item {
             var cx = width/2
             var cy = height/2
             ctx.translate(cx, cy)
-            ctx.rotate(Math.PI/2) // so angle 0 is up
 
             function angleFor(v) {
                 var frac = (v - root.min)/(root.max - root.min)
-                return (root.startAngle + frac*(root.endAngle-root.startAngle))*Math.PI/180.0
+                return (root.startAngle + frac*(root.endAngle-root.startAngle) + root.orientationOffset) * Math.PI/180.0
             }
+            var arcRadius = root.radius - root.ringWidth/2
             // background arc
-            ctx.lineWidth = 14
-            ctx.strokeStyle = '#333'
+            ctx.lineWidth = root.ringWidth
+            ctx.strokeStyle = root.backgroundArcColor
             ctx.beginPath()
-            ctx.arc(0,0, root.radius-10, angleFor(root.min), angleFor(root.max), false)
+            ctx.arc(0,0, arcRadius, angleFor(root.min), angleFor(root.max), false)
             ctx.stroke()
+            // warning (yellow) zone
+            if (root.warnTo > root.warnFrom && root.warnFrom >= root.min) {
+                ctx.strokeStyle = root.warnColor
+                ctx.beginPath()
+                ctx.arc(0,0, arcRadius, angleFor(root.warnFrom), angleFor(root.warnTo), false)
+                ctx.stroke()
+            }
             // red zone
-            ctx.strokeStyle = '#ff3333'
+            ctx.strokeStyle = root.redlineColor
             ctx.beginPath()
-            ctx.arc(0,0, root.radius-10, angleFor(root.redFrom), angleFor(root.redTo), false)
+            ctx.arc(0,0, arcRadius, angleFor(root.redFrom), angleFor(root.redTo), false)
             ctx.stroke()
             // ticks
             ctx.lineWidth = 4
-            var a0, a1
             for (var v = root.min; v <= root.max + 0.001; v += root.majorStep) {
                 var a = angleFor(v)
-                ctx.save()
-                ctx.rotate(a)
-                ctx.beginPath()
-                ctx.moveTo(root.radius-10,0)
-                ctx.lineTo(root.radius-60,0)
-                ctx.strokeStyle = '#ccc'
-                ctx.stroke()
-                ctx.restore()
-                // label
-                ctx.save()
-                ctx.rotate(a)
-                ctx.translate(root.radius-90,0)
-                ctx.rotate(-a)
-                ctx.fillStyle = '#ddd'
-                ctx.font = '32px DejaVu Sans'
-                ctx.textAlign = 'center'
-                ctx.textBaseline = 'middle'
-                ctx.fillText(String(Math.round(v)),0,0)
-                ctx.restore()
+                var isRed = v >= root.redFrom
+                ctx.save(); ctx.rotate(a)
+                ctx.beginPath(); ctx.moveTo(root.radius-10,0); ctx.lineTo(root.radius-10 - root.tickMajorLen,0)
+                ctx.strokeStyle = isRed ? root.redlineColor : root.tickColorMajor; ctx.stroke(); ctx.restore()
+                if (root.drawCanvasLabels && !root.useTextLabels) {
+                    ctx.save(); ctx.rotate(a)
+                    ctx.translate(root.radius-10 - root.tickMajorLen - root.labelDistance,0)
+                    ctx.rotate(-a)
+                    ctx.fillStyle = isRed ? root.redlineColor : root.tickColorMajor
+                    ctx.font = root.fontSizeLabels + 'px DejaVu Sans'
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+                    var display = root.abbreviateThousands ? String(Math.round(v/1000)) : String(Math.round(v))
+                    ctx.fillText(display,0,0)
+                    ctx.restore()
+                }
             }
             // minor ticks
             ctx.lineWidth = 2
             for (var mv = root.min; mv <= root.max + 0.001; mv += root.minorStep) {
                 if (Math.abs(mv % root.majorStep) < 0.001) continue
                 var ma = angleFor(mv)
-                ctx.save()
-                ctx.rotate(ma)
-                ctx.beginPath()
-                ctx.moveTo(root.radius-10,0)
-                ctx.lineTo(root.radius-35,0)
-                ctx.strokeStyle = '#888'
-                ctx.stroke()
-                ctx.restore()
+                ctx.save(); ctx.rotate(ma)
+                ctx.beginPath(); ctx.moveTo(root.radius-10,0); ctx.lineTo(root.radius-10 - root.tickMinorLen,0)
+                if (mv >= root.redFrom) {
+                    ctx.strokeStyle = root.redlineColor
+                } else if (mv >= root.warnFrom && mv <= root.warnTo) {
+                    ctx.strokeStyle = root.warnColor
+                } else {
+                    ctx.strokeStyle = root.tickColorMinor
+                }
+                ctx.stroke(); ctx.restore()
             }
+        }
+    }
+
+    // QML Text based labels (more reliable scaling on some systems)
+    Repeater {
+        id: labelsRepeater
+        model: useTextLabels ? Math.floor((root.max - root.min)/root.majorStep) + 1 : 0
+        delegate: Text {
+            property real v: root.min + index * root.majorStep
+            property real frac: (v - root.min)/(root.max - root.min)
+            property real angleDeg: root.startAngle + frac*(root.endAngle-root.startAngle) + root.orientationOffset
+            property real angleRad: angleDeg * Math.PI/180.0
+            text: root.abbreviateThousands ? Math.round(v/1000) : Math.round(v)
+            color: v >= root.redFrom ? root.redlineColor : root.tickColorMajor
+            font.pixelSize: root.fontSizeLabels
+            font.bold: false
+            x: root.width/2 + Math.cos(angleRad)*(root.radius -10 - root.tickMajorLen - root.labelDistance) - width/2
+            y: root.height/2 + Math.sin(angleRad)*(root.radius -10 - root.tickMajorLen - root.labelDistance) - height/2
+            renderType: Text.NativeRendering
         }
     }
 
     Text { // center label value
         id: valueText
+        visible: root.showCenterValue
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
-        text: Math.round(root.value)
-        color: 'white'
-        font.pixelSize: 96
+        text: root.showValueInThousands ? (root.value/1000).toFixed(1) : Math.round(root.value)
+        color: root.centerValueColor
+        font.pixelSize: root.fontSizeValue
         font.bold: true
         layer.enabled: true
     }
     Text {
+        visible: root.showCenterLabel
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: valueText.bottom
         anchors.topMargin: 8
         text: root.label
-        color: '#bbb'
+        color: root.centerLabelColor
         font.pixelSize: 40
     }
 
@@ -119,8 +191,10 @@ Item {
         property real currentAngle: 0
         Behavior on currentAngle { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
         onTargetAngleChanged: currentAngle = targetAngle
+        onCurrentAngleChanged: needleCanvas.requestPaint()
 
         Canvas {
+            id: needleCanvas
             anchors.fill: parent
             onPaint: {
                 var ctx = getContext('2d')
@@ -128,24 +202,23 @@ Item {
                 var cx = width/2
                 var cy = height/2
                 ctx.translate(cx, cy)
-                ctx.rotate(Math.PI/2)
-                ctx.rotate(needle.currentAngle * Math.PI/180.0)
-                ctx.fillStyle = '#ffdd55'
+                var ang = (needle.currentAngle + root.orientationOffset) * Math.PI/180.0
+                ctx.rotate(ang)
+                var tip = root.radius - root.needleTipInset
+                var tail = -root.needleTail
+                var halfT = root.needleThickness/2
+                ctx.fillStyle = root.needleColor
                 ctx.beginPath()
-                ctx.moveTo(root.radius-20,0)
-                ctx.lineTo(-40,-6)
-                ctx.lineTo(-40,6)
+                ctx.moveTo(tip,0)
+                ctx.lineTo(tail,-halfT)
+                ctx.lineTo(tail,halfT)
                 ctx.closePath()
                 ctx.fill()
+                // Optional subtle center hub
                 ctx.fillStyle = '#222'
-                ctx.beginPath()
-                ctx.arc(0,0,24,0,Math.PI*2)
-                ctx.fill()
-                ctx.fillStyle = '#666'
-                ctx.beginPath()
-                ctx.arc(0,0,18,0,Math.PI*2)
-                ctx.fill()
+                ctx.beginPath(); ctx.arc(0,0, halfT*1.1, 0, Math.PI*2); ctx.fill()
             }
+            Component.onCompleted: requestPaint()
         }
     }
 }
