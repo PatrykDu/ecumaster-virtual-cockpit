@@ -50,11 +50,14 @@ Window {
         z: 10
         visible: !root.splashDone
 
-        Column {
-            anchors.centerIn: parent
-            spacing: 24
-            Image { source: Qt.resolvedUrl("../assets/logo.png"); width: 320; height: 120; fillMode: Image.PreserveAspectFit }
-            Text { text: root.firstData ? "starting…" : "loading…"; color: "white"; font.pixelSize: 32; font.family: "DejaVu Sans" }
+        // Fullscreen mazdaspeed image (fills screen, preserves aspect)
+        Image {
+            id: splashFull
+            anchors.fill: parent
+            source: Qt.resolvedUrl("../assets/mazdaspeed.png")
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+            cache: true
         }
     }
 
