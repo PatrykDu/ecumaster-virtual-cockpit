@@ -71,6 +71,30 @@ Window {
                 }
             }
         }
+        // Exhaust toggle (persists via TEL.saveExhaust if available)
+        RowLayout {
+            Layout.fillWidth: true; spacing: 8
+            CheckBox {
+                id: exhaustBox
+                text: 'Exhaust'
+                checked: false
+                palette { button: '#333'; buttonText: 'white' }
+                onToggled: if (TEL.saveExhaust) TEL.saveExhaust(checked)
+                Component.onCompleted: {
+                    // Load current exhaust value from data.json once
+                    try {
+                        var xhr = new XMLHttpRequest();
+                        xhr.open('GET', Qt.resolvedUrl('../data/data.json'));
+                        xhr.onreadystatechange = function() {
+                            if (xhr.readyState === XMLHttpRequest.DONE) {
+                                try { var obj = JSON.parse(xhr.responseText); exhaustBox.checked = !!obj.exhaust; } catch(e) {}
+                            }
+                        }
+                        xhr.send();
+                    } catch(e) {}
+                }
+            }
+        }
 
         // --- Left Cluster Navigation (arrow buttons) ---
         Rectangle { Layout.fillWidth: true; height: 1; color: '#444' }
