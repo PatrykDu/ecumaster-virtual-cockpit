@@ -198,7 +198,7 @@ Item {
             Text {
                 id: labelText
                 visible: typeof bars[index].label !== 'undefined'
-                text: bars[index].label
+                text: (typeof bars[index].label === 'undefined' ? '' : bars[index].label)
                 color: labelColor
                 // All labels unified to full size (same as FuelGauge F / E)
                 font.pixelSize: fullLabelSize

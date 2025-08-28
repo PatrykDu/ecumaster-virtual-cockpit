@@ -188,7 +188,7 @@ Item {
             Text {
                 id: labelText
                 visible: typeof bars[index].label !== 'undefined'
-                text: bars[index].label
+                text: (typeof bars[index].label === 'undefined' ? '' : bars[index].label)
                 color: labelColor
                 font.pixelSize: bars[index].label === '1/2' ? halfLabelSize : fullLabelSize
                 font.bold: true
