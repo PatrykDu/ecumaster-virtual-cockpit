@@ -57,7 +57,6 @@ Window {
         opacity: 1.0
         z: 10
         visible: !root.splashDone
-
         Image {
             id: splashFull
             anchors.fill: parent
@@ -83,10 +82,69 @@ Window {
         opacity: root.splashDone ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.OutQuad } }
 
+        Item {
+            id: leftIndicatorsCluster
+            anchors.bottom: odometerText.top
+            anchors.bottomMargin: 10
+            anchors.left: parent.left
+            anchors.leftMargin: 340
+            width: parent.width * 0.09
+            height: width
+            visible: true
+            z: 600
+            property real cell: width * 0.48
+            Grid {
+                id: licGrid
+                anchors.centerIn: parent
+                    rows: 2; columns: 2; rowSpacing: -leftIndicatorsCluster.cell * 0.28; columnSpacing: leftIndicatorsCluster.width * 0.04
+                Repeater {
+                    model: [
+                        { key: 'lowBeam', src: '../assets/low_beam.png', color: '#009a1e' },
+                        { key: 'highBeam', src: '../assets/high_beam.png', color: '#0040ff' },
+                        { key: 'fogRear', src: '../assets/fog_rear.png', color: '#e6cc00' },
+                        { key: 'underglow', src: '../assets/underglow.png', color: '#ff2020' }
+                    ]
+                    delegate: Item {
+                        width: leftIndicatorsCluster.cell
+                        height: width
+                        property bool active: TEL && TEL[modelData.key]
+
+                        opacity: 1
+                        Image {
+                            id: indicatorImg
+                            anchors.centerIn: parent
+                            source: Qt.resolvedUrl(modelData.src)
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            cache: true
+                            opacity: (active || bgRect.opacity > 0.05) ? 1 : 0
+                            readonly property bool isUnder: modelData.key === 'underglow'
+                            readonly property bool isFogRear: modelData.key === 'fogRear'
+                            width: isFogRear ? parent.width * 0.90 : parent.width
+                            height: isUnder ? parent.height * 1.30 : (isFogRear ? parent.height * 0.80 : parent.height)
+                        }
+                        Rectangle {
+                            id: bgRect
+                            anchors.centerIn: indicatorImg
+                            width: Math.max(0, indicatorImg.paintedWidth - 5)
+                            height: Math.max(0, indicatorImg.paintedHeight - 5)
+                            radius: width * 0.18
+                            color: modelData.color
+                            opacity: active ? 0.95 : 0.0
+                            z: -1
+                            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.InOutQuad } }
+                        }
+                    }
+                }
+            }
+        }
+
     // CENTER GAUGE (RPM + SPEED)
     Item {
             id: checkEngineIcon
-            visible: TEL && TEL.checkEngine
+            property bool active: TEL && TEL.checkEngine
+            property bool fadingOut: false
+            visible: active || fadingOut
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: -230
@@ -110,16 +168,37 @@ Window {
                 anchors.centerIn: engineImage
                 radius: height * 0.18
                 color: '#ff9900'
-                opacity: 1
-                SequentialAnimation on opacity {
+                property real pulseLevel: 1.0    // animated 0.55..1 while active
+                property real fadeFactor: 0.0    // animated 0..1 in/out
+                opacity: fadeFactor * (checkEngineIcon.active ? pulseLevel : 1)
+                SequentialAnimation {
                     id: pulse
-                    running: checkEngineIcon.visible
+                    running: checkEngineIcon.active
                     loops: Animation.Infinite
-                    PropertyAnimation { to: 0.55; duration: 540; easing.type: Easing.InOutQuad }
-                    PropertyAnimation { to: 1; duration: 620; easing.type: Easing.InOutQuad }
+                    PropertyAnimation { target: checkEngineBg; property: 'pulseLevel'; to: 0.55; duration: 540; easing.type: Easing.InOutQuad }
+                    PropertyAnimation { target: checkEngineBg; property: 'pulseLevel'; to: 1.0;  duration: 620; easing.type: Easing.InOutQuad }
                 }
-                onVisibleChanged: if (!visible) opacity = 1
+                NumberAnimation { id: ceFadeIn;  target: checkEngineBg; property: 'fadeFactor'; to: 1.0; duration: 180; easing.type: Easing.InOutQuad }
+                NumberAnimation { id: ceFadeOut; target: checkEngineBg; property: 'fadeFactor'; to: 0.0; duration: 180; easing.type: Easing.InOutQuad; onFinished: { if (!checkEngineIcon.active) checkEngineIcon.fadingOut = false } }
+                Component.onCompleted: { if (checkEngineIcon.active) { fadeFactor = 0; ceFadeIn.restart(); pulse.start(); } }
                 z: -1
+            }
+            onActiveChanged: {
+                if (active) {
+                    fadingOut = false
+                    ceFadeOut.stop()
+                    checkEngineBg.fadeFactor = 0
+                    ceFadeIn.restart()
+                    if (!pulse.running) pulse.start()
+                } else {
+                    if (checkEngineBg.fadeFactor > 0) {
+                        fadingOut = true
+                        ceFadeIn.stop()
+                        ceFadeOut.restart()
+                    } else {
+                        fadingOut = false
+                    }
+                }
             }
         }
 
@@ -302,15 +381,35 @@ Window {
             anchors.rightMargin: -130
             z: 500
             property bool active: TEL ? TEL.leftBlink : false
-            visible: active
+            property bool fadingOut: false
+            visible: active || fadingOut
             opacity: 1
+            onActiveChanged: {
+                if (active) {
+                    fadingOut = false
+                    leftTurnFadeOut.stop()
+                    leftTurnBg.opacity = 0
+                    leftTurnFadeIn.restart()
+                } else { // start fade-out sequence for background
+                    if (leftTurnBg.opacity > 0) {
+                        fadingOut = true
+                        leftTurnFadeIn.stop()
+                        leftTurnFadeOut.restart()
+                    } else {
+                        fadingOut = false
+                    }
+                }
+            }
             Rectangle { // green fill only behind arrow cutout (smaller so it doesn't stick out)
+                id: leftTurnBg
                 anchors.centerIn: parent
                 width: parent.width * 0.96
                 height: parent.height * 0.72
                 radius: width * 0.20
                 color: '#00c040'
-                opacity: 0.95
+                opacity: 0
+                NumberAnimation { id: leftTurnFadeIn; target: leftTurnBg; property: 'opacity'; to: 0.95; duration: 180; easing.type: Easing.InOutQuad }
+                NumberAnimation { id: leftTurnFadeOut; target: leftTurnBg; property: 'opacity'; to: 0.0; duration: 180; easing.type: Easing.InOutQuad; onFinished: { if (!leftTurnIndicator.active) leftTurnIndicator.fadingOut = false } }
             }
             Image {
                 anchors.fill: parent
@@ -334,15 +433,35 @@ Window {
             anchors.leftMargin: -130 // mirror distance (positive) of left indicator
             z: 500
             property bool active: TEL ? TEL.rightBlink : false
-            visible: active
+            property bool fadingOut: false
+            visible: active || fadingOut
             opacity: 1
+            onActiveChanged: {
+                if (active) {
+                    fadingOut = false
+                    rightTurnFadeOut.stop()
+                    rightTurnBg.opacity = 0
+                    rightTurnFadeIn.restart()
+                } else {
+                    if (rightTurnBg.opacity > 0) {
+                        fadingOut = true
+                        rightTurnFadeIn.stop()
+                        rightTurnFadeOut.restart()
+                    } else {
+                        fadingOut = false
+                    }
+                }
+            }
             Rectangle {
+                id: rightTurnBg
                 anchors.centerIn: parent
                 width: parent.width * 0.98
                 height: parent.height * 0.7
                 radius: width * 0.20
                 color: '#00c040'
-                opacity: 0.95
+                opacity: 0
+                NumberAnimation { id: rightTurnFadeIn; target: rightTurnBg; property: 'opacity'; to: 0.95; duration: 180; easing.type: Easing.InOutQuad }
+                NumberAnimation { id: rightTurnFadeOut; target: rightTurnBg; property: 'opacity'; to: 0.0; duration: 180; easing.type: Easing.InOutQuad; onFinished: { if (!rightTurnIndicator.active) rightTurnIndicator.fadingOut = false } }
             }
             Image {
                 anchors.fill: parent

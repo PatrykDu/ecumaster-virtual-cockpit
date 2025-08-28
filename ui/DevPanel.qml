@@ -12,13 +12,13 @@ Window {
     visible: true
     color: "#202225"
     Component.onCompleted: {
-        // AUTO CENTER ALL ON OPEN
+        // AUTO CENTER + BLINK ALL ON OPEN
         TEL.rpm = 3500;
         TEL.speed = 150;
         TEL.fuel = 50;
         TEL.waterTemp = 90;
         TEL.oilTemp = 90;
-        TEL.leftBlink = false; TEL.rightBlink = false; TEL.highBeam = false; TEL.fog = false; TEL.park = false; TEL.checkEngine = false;
+    TEL.leftBlink = true; TEL.rightBlink = true; TEL.lowBeam = true; TEL.highBeam = true; TEL.fogRear = true; TEL.underglow = true; TEL.park = true; TEL.checkEngine = true;
     }
 
     ColumnLayout {
@@ -63,49 +63,77 @@ Window {
             Slider { id: oilTempSlider; from: 0; to: 150; stepSize: 1; Layout.fillWidth: true; value: TEL.oilTemp; onValueChanged: TEL.oilTemp = Math.round(value) }
         }
 
-    // STATUS TOGGLES
-    RowLayout {
-            Layout.fillWidth: true; spacing: 8
-            Repeater {
-                model: [
-                    { key: 'leftBlink', label: 'Left' },
-                    { key: 'rightBlink', label: 'Right' },
-                    { key: 'highBeam', label: 'High' },
-                    { key: 'fog', label: 'Fog' },
-                    { key: 'park', label: 'Park' },
-                    { key: 'checkEngine', label: 'Chk' }
-                ]
-                delegate: CheckBox {
-                    text: modelData.label
-                    checked: TEL[modelData.key]
-                    onToggled: TEL[modelData.key] = checked
-                    palette { button: '#333'; buttonText: 'white' }
-                }
-            }
-        }
-    // EXHAUST TOGGLE
-    RowLayout {
-            Layout.fillWidth: true; spacing: 8
-            CheckBox {
-                id: exhaustBox
-                text: 'Exhaust'
-                checked: false
+    // STATUS TOGGLES (wrap when not enough width)
+    Flow {
+        id: statusFlow
+        Layout.fillWidth: true
+        spacing: 12
+        Repeater {
+            model: [
+                { key: 'leftBlink', label: 'Left' },
+                { key: 'rightBlink', label: 'Right' },
+                { key: 'lowBeam', label: 'Low' },
+                { key: 'highBeam', label: 'High' },
+                { key: 'fogRear', label: 'FogR' },
+                { key: 'park', label: 'Park' },
+                { key: 'underglow', label: 'Under' },
+                { key: 'checkEngine', label: 'Chk' }
+            ]
+            delegate: CheckBox {
+                id: cb
+                text: modelData.label
+                checked: TEL[modelData.key]
+                onToggled: TEL[modelData.key] = checked
+                font.pixelSize: 12
                 palette { button: '#333'; buttonText: 'white' }
-                onToggled: if (TEL.saveExhaust) TEL.saveExhaust(checked)
-                Component.onCompleted: {
-                    try {
-                        var xhr = new XMLHttpRequest();
-                        xhr.open('GET', Qt.resolvedUrl('../data/data.json'));
-                        xhr.onreadystatechange = function() {
-                            if (xhr.readyState === XMLHttpRequest.DONE) {
-                                try { var obj = JSON.parse(xhr.responseText); exhaustBox.checked = !!obj.exhaust; } catch(e) {}
-                            }
-                        }
-                        xhr.send();
-                    } catch(e) {}
+                // Keep indicator at far left; manually position label to its right
+                contentItem: Text {
+                    text: cb.text
+                    color: 'white'
+                    font: cb.font
+                    elide: Text.ElideRight
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.left: cb.indicator.right
+                    anchors.leftMargin: 6
                 }
+                // Provide a reasonable implicit width (indicator + margin + text)
+                implicitWidth: indicator.width + 6 + contentItem.implicitWidth
             }
         }
+    }
+    RowLayout {
+        Layout.fillWidth: true; spacing: 8
+        CheckBox {
+            id: exhaustBox
+            text: 'Exhaust'
+            checked: false
+            font.pixelSize: 12
+            palette { button: '#333'; buttonText: 'white' }
+            contentItem: Text {
+                text: exhaustBox.text
+                color: 'white'
+                font: exhaustBox.font
+                elide: Text.ElideRight
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.left: exhaustBox.indicator.right
+                anchors.leftMargin: 6
+            }
+            implicitWidth: indicator.width + 6 + contentItem.implicitWidth
+            onToggled: if (TEL.saveExhaust) TEL.saveExhaust(checked)
+            Component.onCompleted: {
+                try {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', Qt.resolvedUrl('../data/data.json'));
+                    xhr.onreadystatechange = function() {
+                        if (xhr.readyState === XMLHttpRequest.DONE) {
+                            try { var obj = JSON.parse(xhr.responseText); exhaustBox.checked = !!obj.exhaust; } catch(e) {}
+                        }
+                    }
+                    xhr.send();
+                } catch(e) {}
+            }
+        }
+    }
 
     Rectangle { Layout.fillWidth: true; height: 1; color: '#444' }
     // LEFT CLUSTER NAVIGATION
@@ -133,15 +161,15 @@ Window {
                 TEL.fuel = 50;
                 TEL.waterTemp = 90;
                 TEL.oilTemp = 90;
-                TEL.leftBlink = false; TEL.rightBlink = false; TEL.highBeam = false; TEL.fog = false; TEL.park = false; TEL.checkEngine = false;
+    TEL.leftBlink = false; TEL.rightBlink = false; TEL.lowBeam = false; TEL.highBeam = false; TEL.fogRear = false; TEL.underglow = false; TEL.park = false; TEL.checkEngine = false;
             } }
         Button { text: "Zero"; Layout.fillWidth: true; onClicked: {
                 TEL.rpm = 0; TEL.speed = 0; TEL.fuel = 0; TEL.waterTemp = 0; TEL.oilTemp = 0;
-                TEL.leftBlink = false; TEL.rightBlink = false; TEL.highBeam = false; TEL.fog = false; TEL.park = false; TEL.checkEngine = false;
+    TEL.leftBlink = false; TEL.rightBlink = false; TEL.lowBeam = false; TEL.highBeam = false; TEL.fogRear = false; TEL.underglow = false; TEL.park = false; TEL.checkEngine = false;
             } }
         Button { text: "Redline"; Layout.fillWidth: true; onClicked: { TEL.rpm = 6800; TEL.speed = 299 } }
-        Button { text: "Blink All"; Layout.fillWidth: true; onClicked: { TEL.leftBlink = true; TEL.rightBlink = true; TEL.highBeam = true; TEL.fog = true; TEL.park = true; TEL.checkEngine = true } }
-        Button { text: "Clear All"; Layout.fillWidth: true; onClicked: { TEL.leftBlink = false; TEL.rightBlink = false; TEL.highBeam = false; TEL.fog = false; TEL.park = false; TEL.checkEngine = false } }
+    Button { text: "Blink All"; Layout.fillWidth: true; onClicked: { TEL.leftBlink = true; TEL.rightBlink = true; TEL.lowBeam = true; TEL.highBeam = true; TEL.fogRear = true; TEL.underglow = true; TEL.park = true; TEL.checkEngine = true } }
+    Button { text: "Clear All"; Layout.fillWidth: true; onClicked: { TEL.leftBlink = false; TEL.rightBlink = false; TEL.lowBeam = false; TEL.highBeam = false; TEL.fogRear = false; TEL.underglow = false; TEL.park = false; TEL.checkEngine = false } }
         Item { Layout.fillHeight: true }
     }
 }

@@ -10,13 +10,15 @@ class Telemetry(QObject):
     leftBlinkChanged = Signal(bool)
     rightBlinkChanged = Signal(bool)
     highBeamChanged = Signal(bool)
-    fogChanged = Signal(bool)
+    lowBeamChanged = Signal(bool)
+    fogRearChanged = Signal(bool)
     parkChanged = Signal(bool)
     firstFrameReceived = Signal()
-    fuelChanged = Signal(int)  # 0..100 percent
-    waterTempChanged = Signal(int)  # coolant temperature (0..150 C)
-    oilTempChanged = Signal(int)  # oil temperature (0..160 C typical)
+    fuelChanged = Signal(int)
+    waterTempChanged = Signal(int)
+    oilTempChanged = Signal(int)
     checkEngineChanged = Signal(bool)
+    underglowChanged = Signal(bool)
 
     # NAV EVENTS
     navUpEvent = Signal()
@@ -31,11 +33,13 @@ class Telemetry(QObject):
         self._leftBlink = False
         self._rightBlink = False
         self._highBeam = False
-        self._fog = False
+        self._lowBeam = False
+        self._fogRear = False
         self._park = False
-        self._fuel = 0  # percent
-        self._waterTemp = 0  # degrees C (0..150)
-        self._oilTemp = 0  # degrees C (0..160)
+        self._underglow = False
+        self._fuel = 0
+        self._waterTemp = 0
+        self._oilTemp = 0
         self._checkEngine = False
         self._got_first = False
         self._mtx = QMutex()
@@ -117,17 +121,29 @@ class Telemetry(QObject):
 
     highBeam = Property(bool, getHighBeam, setHighBeam, notify=highBeamChanged)
 
-    # FOG
-    def getFog(self) -> bool:
-        return self._fog
+    # LOW BEAM
+    def getLowBeam(self) -> bool:
+        return self._lowBeam
 
-    def setFog(self, v: bool):
-        if v == self._fog:
+    def setLowBeam(self, v: bool):
+        if v == self._lowBeam:
             return
-        self._fog = v
-        self.fogChanged.emit(v)
+        self._lowBeam = v
+        self.lowBeamChanged.emit(v)
 
-    fog = Property(bool, getFog, setFog, notify=fogChanged)
+    lowBeam = Property(bool, getLowBeam, setLowBeam, notify=lowBeamChanged)
+
+    # REAR FOG
+    def getFogRear(self) -> bool:
+        return self._fogRear
+
+    def setFogRear(self, v: bool):
+        if v == self._fogRear:
+            return
+        self._fogRear = v
+        self.fogRearChanged.emit(v)
+
+    fogRear = Property(bool, getFogRear, setFogRear, notify=fogRearChanged)
 
     # PARK
     def getPark(self) -> bool:
@@ -195,6 +211,18 @@ class Telemetry(QObject):
 
     checkEngine = Property(bool, getCheckEngine, setCheckEngine, notify=checkEngineChanged)
 
+    # UNDERGLOW
+    def getUnderglow(self) -> bool:
+        return self._underglow
+
+    def setUnderglow(self, v: bool):
+        if v == self._underglow:
+            return
+        self._underglow = v
+        self.underglowChanged.emit(v)
+
+    underglow = Property(bool, getUnderglow, setUnderglow, notify=underglowChanged)
+
     def updateFromFrame(self, rpm: int, speed_kmh: float, flags: int):
         with QMutexLocker(self._mtx):
             self.setRpm(rpm)
@@ -202,9 +230,9 @@ class Telemetry(QObject):
             self.setLeftBlink(bool(flags & (1 << 0)))
             self.setRightBlink(bool(flags & (1 << 1)))
             self.setHighBeam(bool(flags & (1 << 2)))
-            self.setFog(bool(flags & (1 << 3)))
-            self.setPark(bool(flags & (1 << 4)))
-            self.setFuel((flags >> 5) & 0xFF)
+            # bit3 previously fog (removed)
+            self.setPark(bool(flags & (1 << 3)))
+            self.setFuel((flags >> 4) & 0xFF)
             self.setWaterTemp(min(150, int(self._fuel * 1.5)))
             est_oil = int(self._waterTemp * 0.9 + 10)
             self.setOilTemp(est_oil)
@@ -247,18 +275,20 @@ class Telemetry(QObject):
         blink_left = int((t * 1.5) % 2) == 0
         blink_right = not blink_left
         high_beam = rpm > 6000  # same logic as before
-        fog = int((t / 4) % 2) == 0
         park = int((t / 10) % 2) == 0
         check_engine = int((t / 15) % 30) == 0  # brief flash every 15s
+        low_beam = True  # keep on for demo
+        fog_rear = int((t / 5) % 2) == 0
+        underglow = int((t * 0.5) % 2) == 0  # slow pulse
 
         # Pack flags: bits0..4 booleans, bits5-12 fuel (8 bits)
+        # bit0 leftBlink, bit1 rightBlink, bit2 highBeam, bit3 park, bits4-11 fuel
         flags = (
             (1 if blink_left else 0) |
             ((1 if blink_right else 0) << 1) |
             ((1 if high_beam else 0) << 2) |
-            ((1 if fog else 0) << 3) |
-            ((1 if park else 0) << 4) |
-            ((fuel_val & 0xFF) << 5)
+            ((1 if park else 0) << 3) |
+            ((fuel_val & 0xFF) << 4)
         )
 
         self.updateFromFrame(rpm, speed, flags)
@@ -266,6 +296,9 @@ class Telemetry(QObject):
         self.setWaterTemp(water_temp)
         self.setOilTemp(oil_temp)
         self.setCheckEngine(check_engine)
+        self.setLowBeam(low_beam)
+        self.setFogRear(fog_rear)
+        self.setUnderglow(underglow)
 
     # PERSISTENCE
     @Slot(int, int, int, int)
