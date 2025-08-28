@@ -315,7 +315,26 @@ Window {
             anchors.rightMargin: 360
             anchors.bottomMargin: 35
             z: 600
+            property color baseColor: 'white'
+            property bool flash: false
+            SequentialAnimation { // scale pulse
+                id: tripPulse
+                running: false
+                PropertyAnimation { target: tripText; property: 'scale'; to: 1.22; duration: 120; easing.type: Easing.OutCubic }
+                PropertyAnimation { target: tripText; property: 'scale'; to: 1.0; duration: 180; easing.type: Easing.InOutCubic }
+            }
+            SequentialAnimation { // color flash (white -> red -> white)
+                id: tripFlash
+                running: false
+                ColorAnimation { target: tripText; property: 'color'; to: '#ff5050'; duration: 160 }
+                ColorAnimation { target: tripText; property: 'color'; to: tripText.baseColor; duration: 300 }
+            }
         }
+    }
+
+    function animateTripReset() {
+        tripPulse.start();
+        tripFlash.start();
     }
 
     function redlineForOilTemp(oilTemp) {

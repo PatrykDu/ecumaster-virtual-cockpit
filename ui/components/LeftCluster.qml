@@ -15,7 +15,7 @@ Item {
     height: heightOverride > 0 ? heightOverride : base * ratioH
 
     // MENU
-    property var menuItems: ["suspension", "reset trip", "exhaust", "settings"]
+    property var menuItems: ["suspension", "exhaust", "reset trip", "settings"]
     property int menuIndex: 0
     property bool menuActive: false
     property int inactivityMs: 5000
@@ -543,8 +543,28 @@ Item {
                 // Enter exhaust submenu
                 scheduleSubmenuEnter('exhaust');
                 return;
+            } else if (sel === 'reset trip') {
+                scheduleTripReset();
+                return;
             }
         }
+    }
+
+    function scheduleTripReset() {
+        if (selectionConfirm.running) return;
+        _queuedSubmenuName = 'reset-trip';
+        selectionConfirm.start();
+    }
+
+    function resetTrip() {
+        try {
+            if (typeof TEL !== 'undefined' && TEL.saveTrip) {
+                TEL.saveTrip(0.0); // only trip reset
+            }
+            if (windowRoot) windowRoot.tripValue = 0.0; // immediate UI update
+            if (windowRoot && windowRoot.animateTripReset) windowRoot.animateTripReset();
+        } catch(e) {}
+        inactivityTimer.restart();
     }
 
     // CONFIRMATION ANIMATION
@@ -556,6 +576,8 @@ Item {
                 enterSuspension();
             } else if (_queuedSubmenuName === 'exhaust') {
                 enterExhaust();
+            } else if (_queuedSubmenuName === 'reset-trip') {
+                resetTrip();
             }
             _queuedSubmenuName = '';
         }

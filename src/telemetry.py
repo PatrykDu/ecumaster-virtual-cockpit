@@ -262,3 +262,39 @@ class Telemetry(QObject):
                 json.dump(obj, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"[saveExhaust] error: {e}")
+
+    @Slot(float)
+    def saveOdometer(self, odometer_value: float):
+        """Persist odometer (float) to data/data.json, merging with existing keys."""
+        try:
+            data_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'data.json'))
+            obj = {}
+            if os.path.isfile(data_path):
+                try:
+                    with open(data_path, 'r', encoding='utf-8') as f:
+                        obj = json.load(f) or {}
+                except Exception:
+                    obj = {}
+            obj['odometer'] = float(odometer_value)
+            with open(data_path, 'w', encoding='utf-8') as f:
+                json.dump(obj, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"[saveOdometer] error: {e}")
+
+    @Slot(float)
+    def saveTrip(self, trip_value: float):
+        """Persist trip (float) to data/data.json, merging with existing keys."""
+        try:
+            data_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'data.json'))
+            obj = {}
+            if os.path.isfile(data_path):
+                try:
+                    with open(data_path, 'r', encoding='utf-8') as f:
+                        obj = json.load(f) or {}
+                except Exception:
+                    obj = {}
+            obj['trip'] = float(trip_value)
+            with open(data_path, 'w', encoding='utf-8') as f:
+                json.dump(obj, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"[saveTrip] error: {e}")
