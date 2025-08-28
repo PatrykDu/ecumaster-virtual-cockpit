@@ -35,12 +35,25 @@ Item {
     // Editable range
     property int wheelMin: 1
     property int wheelMax: 32
+    // Dynamic width of currently selected menu text
+    property real selectedTextWidth: 0
 
     // Animation metrics
     property real slotSpacing: base * 0.42   // vertical distance between consecutive items
     property real selectedFont: base * 0.30
     property real dimFont: base * 0.16
     property int animMs: 180
+
+    // Font metrics for measuring selected item width
+    FontMetrics { id: menuFontMetrics; font.pixelSize: root.selectedFont }
+    Component.onCompleted: {
+        if (menuItems.length > 0) {
+            selectedTextWidth = menuFontMetrics.advanceWidth(menuItems[0]);
+            frame.targetWidth = (selectedTextWidth > 0 ? selectedTextWidth : base) + base * 0.36;
+        }
+    }
+    onSelectedFontChanged: if (menuItems.length > 0) { selectedTextWidth = menuFontMetrics.advanceWidth(menuItems[menuIndex]); frame.targetWidth = (selectedTextWidth>0?selectedTextWidth:base)+base*0.36 }
+    onMenuIndexChanged: if (menuItems.length > 0) { selectedTextWidth = menuFontMetrics.advanceWidth(menuItems[menuIndex]); frame.targetWidth = (selectedTextWidth>0?selectedTextWidth:base)+base*0.36 }
 
     // Time
     property date now: new Date()
@@ -62,78 +75,30 @@ Item {
         font.pixelSize: base * 0.6
         font.bold: true
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: frame.top
-        // When menu hidden, push clock down by 100px (negative margin relative to anchored bottom)
-        anchors.bottomMargin: base * 0.55 - (menuActive ? 0 : 100)
+        anchors.top: parent.top
+        // Raised higher to avoid overlap with dynamic menu highlight
+        anchors.topMargin: -base * 1.2 + (menuActive ? 0 : base * 1)
         opacity: inSubmenu ? 0 : 1
         Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-        Behavior on anchors.bottomMargin { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on anchors.topMargin { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
     }
 
-    // Frame (selection window)
+    // Frame reused as dynamic highlight (width adapts to selected text)
     Rectangle {
         id: frame
-        anchors.fill: parent
-        // Hide frame when inside submenu (we show content instead)
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        // Animated target width (decoupled from raw measurement to avoid jitter)
+        property real targetWidth: (root.selectedTextWidth > 0 ? root.selectedTextWidth : base) + base * 0.36
+        width: targetWidth
+        height: root.selectedFont * 1.25
+        radius: 6
+        color: Qt.rgba(1,0.08,0.08,0.28)
+        border.color: Qt.rgba(1,0.15,0.15,0.55)
+        border.width: 2
         opacity: (!inSubmenu && menuActive) ? 1 : 0
+        Behavior on targetWidth { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
         Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-        color: "#00000000"
-        border.color: "#00000000" // disable default border
-        border.width: 0
-        radius: 8
-        antialiasing: true
-
-        // Gradient stroke (very transparent red)
-        readonly property color gradStart: Qt.rgba(1,0.1,0.1,0.12)
-        readonly property color gradEnd: Qt.rgba(1,0.0,0.0,0.02)
-        readonly property real strokeWidth: 3
-
-        Canvas {
-            id: frameStroke
-            anchors.fill: parent
-            onPaint: {
-                var ctx = getContext('2d');
-                ctx.reset();
-                var w = width; var h = height; var r = frame.radius; var sw = frame.strokeWidth;
-                // Gradient vertical
-                var g = ctx.createLinearGradient(0,0,0,h);
-                g.addColorStop(0, frame.gradStart);
-                g.addColorStop(0.5, frame.gradEnd);
-                g.addColorStop(1, frame.gradStart);
-                ctx.lineWidth = sw;
-                ctx.strokeStyle = g;
-                ctx.beginPath();
-                var inset = sw/2;
-                var x0 = inset, y0 = inset, x1 = w - inset, y1 = h - inset;
-                var rr = Math.max(0, r - inset);
-                ctx.moveTo(x0+rr, y0);
-                ctx.lineTo(x1-rr, y0);
-                ctx.quadraticCurveTo(x1, y0, x1, y0+rr);
-                ctx.lineTo(x1, y1-rr);
-                ctx.quadraticCurveTo(x1, y1, x1-rr, y1);
-                ctx.lineTo(x0+rr, y1);
-                ctx.quadraticCurveTo(x0, y1, x0, y1-rr);
-                ctx.lineTo(x0, y0+rr);
-                ctx.quadraticCurveTo(x0, y0, x0+rr, y0);
-                ctx.stroke();
-            }
-            Component.onCompleted: requestPaint()
-            onWidthChanged: requestPaint()
-            onHeightChanged: requestPaint()
-        }
-
-        // Menu label (current selection) -- removed (handled by animated layer)
-        // Text {
-        //     id: menuLabel
-        //     text: root.menuItems[root.menuIndex]
-        //     color: 'white'
-        //     font.pixelSize: base * 0.30
-        //     font.bold: true
-        //     anchors.centerIn: parent
-        //     width: parent.width * 0.9
-        //     horizontalAlignment: Text.AlignHCenter
-        //     elide: Text.ElideRight
-        // }
     }
 
     // Animated menu layer (items slide & fade)
@@ -142,8 +107,8 @@ Item {
         anchors.fill: parent
         opacity: menuActive && !inSubmenu ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-        // Center Y reference for selected item
-        property real centerY: frame.y + frame.height/2
+    // Center Y reference for selected item
+    property real centerY: frame.y + frame.height/2
         Repeater {
             model: root.menuItems.length
             delegate: Text {
@@ -165,7 +130,8 @@ Item {
                 scale: dist === 0 ? 1.0 : 0.85
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: menuLayer.centerY + dist * root.slotSpacing - height/2
-                width: frame.width * 0.9
+                width: root.width * 0.9
+                // (Removed onOpacityChanged to prevent double width updates; width recalculated on menuIndex change)
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
                 visible: opacity > 0.01
