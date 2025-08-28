@@ -1,12 +1,11 @@
 import QtQuick 2.15
-// LeftCluster main component
 Item {
     id: root
     property real base: 110
     readonly property real ratioW: 2
     readonly property real ratioH: 3
     property real heightOverride: -1
-    // Suspension values
+    
     property real fl: 0
     property real fr: 0
     property real rr: 0
@@ -14,7 +13,7 @@ Item {
     width: base * ratioW
     height: heightOverride > 0 ? heightOverride : base * ratioH
 
-    // MENU
+    
     property var menuItems: ["suspension", "exhaust", "reset trip", "settings"]
     property int menuIndex: 0
     property bool menuActive: false
@@ -22,7 +21,7 @@ Item {
     property int submenuInactivityMs: 5000
     property bool _suspensionAutoExit: false
     property bool _exhaustAutoExit: false
-        // Settings submenu state
+        
         property bool _settingsAutoExit: false
         property var settingsItems: ["Idle Timer", "Brightness", "Theme", "Diagnostics"]
         property int settingsIndex: 0
@@ -32,16 +31,16 @@ Item {
     property int wheelMax: 32
     property real selectedTextWidth: 0
     property bool exhaustState: false
-    // Settings transition state
+    
     property bool settingsHeaderVisible: false
     property bool settingsTransitionActive: false
-    // Fade values
+    
     property real menuFade: 1    // 1 visible, 0 hidden
     property real submenuFade: 0 // 0 hidden, 1 visible
-    // Highlight frame visibility override (used during settings transition/submenu)
+    
     property bool frameHideOverride: false
 
-    // Animation metrics
+    
     property real slotSpacing: base * 0.42   // vertical distance between consecutive items
     property real selectedFont: base * 0.30
     property real dimFont: base * 0.16
@@ -58,8 +57,9 @@ Item {
     onSelectedFontChanged: if (menuItems.length > 0) { selectedTextWidth = menuFontMetrics.advanceWidth(menuItems[menuIndex]); frame.targetWidth = (selectedTextWidth>0?selectedTextWidth:base)+base*0.36 }
     onMenuIndexChanged: if (menuItems.length > 0) { selectedTextWidth = menuFontMetrics.advanceWidth(menuItems[menuIndex]); frame.targetWidth = (selectedTextWidth>0?selectedTextWidth:base)+base*0.36 }
 
-    // CLOCK
+    
     property date now: new Date()
+    // CLOCK
     Timer { interval: 1000; running: true; repeat: true; onTriggered: root.now = new Date() }
     Timer {
         id: inactivityTimer
@@ -67,7 +67,7 @@ Item {
         running: root.menuActive
         repeat: false
         onTriggered: {
-            // Don't collapse menu visuals while a submenu is active
+            
             if (!root.inSubmenu) root.menuActive = false;
         }
     }
@@ -85,7 +85,7 @@ Item {
     Behavior on anchors.topMargin { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
     }
 
-    // Highlight frame for selected menu item
+    
     Rectangle {
         id: frame
         anchors.horizontalCenter: parent.horizontalCenter
@@ -105,11 +105,12 @@ Item {
     Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
     }
 
+    
     // MENU LIST
     Item {
         id: menuLayer
         anchors.fill: parent
-    // Hide menu options instantly during settings transition (settingsTransitionActive)
+    
     opacity: (menuActive && !inSubmenu && !settingsTransitionActive) ? menuFade : 0
     property real centerY: frame.y + frame.height/2
         Repeater {
@@ -158,6 +159,7 @@ Item {
     opacity: (inSubmenu && currentSubmenu === 'suspension') ? submenuFade : 0
     }
 
+    
     // SUBMENUS
     Item {
         id: submenuLayer
@@ -176,7 +178,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: -base * 0.3
             width: parent.width * 0.7
-            height: width // square area
+            height: width 
             opacity: root.currentSubmenu === 'suspension' ? 1 : 0
             scale: 1
             visible: root.currentSubmenu === 'suspension'
@@ -188,11 +190,11 @@ Item {
                 source: Qt.resolvedUrl('../../assets/suspension.png')
                 smooth: true
             }
-            // Suspension wheel values
+            
             property real wheelFont: base * 0.32
 
 
-            Text { // FL
+            Text {
                 id: txtFL
                 text: submenuLayer.valFL
                 anchors.left: parent.left; anchors.top: parent.top
@@ -218,7 +220,7 @@ Item {
                     ColorAnimation { target: txtFL; property: 'color'; from: '#00ff90'; to: (root.wheelEditIndex===0 ? '#00c060' : 'white'); duration: 200 }
                 }
             }
-            Text { // FR
+            Text {
                 id: txtFR
                 text: submenuLayer.valFR
                 anchors.right: parent.right; anchors.top: parent.top
@@ -244,7 +246,7 @@ Item {
                     ColorAnimation { target: txtFR; property: 'color'; from: '#00ff90'; to: (root.wheelEditIndex===1 ? '#00c060' : 'white'); duration: 200 }
                 }
             }
-            Text { // RL
+            Text {
                 id: txtRL
                 text: submenuLayer.valRL
                 anchors.left: parent.left; anchors.bottom: parent.bottom
@@ -270,7 +272,7 @@ Item {
                     ColorAnimation { target: txtRL; property: 'color'; from: '#00ff90'; to: (root.wheelEditIndex===2 ? '#00c060' : 'white'); duration: 200 }
                 }
             }
-            Text { // RR
+            Text {
                 id: txtRR
                 text: submenuLayer.valRR
                 anchors.right: parent.right; anchors.bottom: parent.bottom
@@ -297,8 +299,9 @@ Item {
                 }
             }
         }
+    
     // EXHAUST SUBMENU
-        Rectangle {
+    Rectangle {
             id: exhaustContainer
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
@@ -332,7 +335,7 @@ Item {
                 scale: 1
             }
         }
-        Text { // exhaustLabel (below)
+    Text {
             id: exhaustLabel
             text: root.exhaustState ? 'flaps open' : 'flaps closed'
             anchors.top: exhaustContainer.bottom
@@ -350,10 +353,11 @@ Item {
         }
     }
 
+    
     // STATE
     property bool inSubmenu: false
     property string currentSubmenu: ''
-    // Timer: auto-exit from submenu
+    
     Timer {
         id: submenuInactivityTimer
         interval: root.submenuInactivityMs
@@ -377,8 +381,8 @@ Item {
         inactivityTimer.stop();
     submenuFadeIn.stop(); submenuFadeOut.stop(); menuFadeIn.stop(); menuFadeOut.stop();
     submenuFade = 0;
-    _pendingSubmenuEntry = true; // flag consumed in menuFadeOut.onStopped
-    if (menuFade !== 1) menuFade = 1; // ensure starting point
+    _pendingSubmenuEntry = true; 
+    if (menuFade !== 1) menuFade = 1; 
     menuFadeOut.from = 1; menuFadeOut.to = 0; menuFadeOut.start();
         submenuInactivityTimer.restart();
     }
@@ -387,7 +391,7 @@ Item {
         if (fr < wheelMin) { fr = wheelMin; if (windowRoot) windowRoot.fr = fr }
         if (rl < wheelMin) { rl = wheelMin; if (windowRoot) windowRoot.rl = rl }
         if (rr < wheelMin) { rr = wheelMin; if (windowRoot) windowRoot.rr = rr }
-        console.log('[suspension] enter FR='+root.fr+' FL='+root.fl+' RR='+root.rr+' RL='+root.rl)
+    console.log('[suspension] enter FR='+root.fr+' FL='+root.fl+' RR='+root.rr+' RL='+root.rl)
         _enterSubmenuCommon('suspension');
     }
     function exitSuspension(auto) {
@@ -404,20 +408,20 @@ Item {
         _enterSubmenuCommon('exhaust');
     }
         function enterSettings() {
-            // Animated enter for settings (custom slide + shrink)
+            
             _settingsAutoExit = false;
             settingsIndex = 0;
             settingsHeaderVisible = false;
             settingsTransitionActive = true;
             root.currentSubmenu = 'settings';
             settingsContainer.hideSettingsFrame = false;
-            // Keep main menu considered active visually and stop inactivity timer (prevents clock jump)
+            
             root.menuActive = true;
             inactivityTimer.stop();
-            // Ensure container visible (but submenu flag stays false until end to preserve clock logic)
+            
             submenuFade = 1;
             menuFade = 1;
-            // Prepare flying label
+            
             var startPos = frame.mapToItem(root, frame.width/2, frame.height/2);
             settingsFly.text = 'settings';
             settingsFly.font.pixelSize = root.selectedFont;
@@ -426,19 +430,19 @@ Item {
             settingsFly.scale = 1;
             settingsFly.opacity = 1;
             settingsFly.visible = true;
-            // Target values (compute after layout pass)
+            
             var scaleTarget = (base * 0.20) / root.selectedFont; // header font / selected font
-            // Hide original menu frame during transition via override (don't break binding)
+            
             frameHideOverride = true;
-            // Slide options container from right (initial offset)
-            settingsOptions.x = root.width * 0.25; settingsOptions.opacity = 0;
-            // Prepare animation 'from' values now
+            
+            settingsOptions.x = root.width * 0.25; settingsOptions.opacity = 0; settingsOptions.scale = 1;
+            
             settingsEnterAnim.stop();
             settingsEnterAnim.animX.from = settingsFly.x;
             settingsEnterAnim.animY.from = settingsFly.y;
             settingsEnterAnim.animScale.from = 1;
             settingsEnterAnim.animScale.to = scaleTarget;
-            // Defer target position calculation to ensure anchors have been resolved
+            
             Qt.callLater(function() {
                 var targetPos = settingsHeader.mapToItem(root, settingsHeader.width/2, settingsHeader.height/2);
                 settingsEnterAnim.animX.to = targetPos.x - settingsFly.width/2;
@@ -447,10 +451,10 @@ Item {
             });
             submenuInactivityTimer.restart();
         }
-    // Queue submenu entry
+    
     property string _queuedSubmenuName: ''
     function scheduleSubmenuEnter(name) {
-        if (selectionConfirm.running) return; // ignore if already animating
+    if (selectionConfirm.running) return; 
         _queuedSubmenuName = name;
         selectionConfirm.start();
     }
@@ -463,13 +467,13 @@ Item {
     }
         function exitSettings(auto) {
             if (settingsExitAnim.running || settingsOptionsAnim.running || settingsEnterAnim.running)
-                return; // avoid conflicts
+                return; 
             root._settingsAutoExit = (auto === true);
             submenuInactivityTimer.stop();
-            settingsTransitionActive = true; // keep menu hidden
-            settingsHeaderVisible = false;   // fade out header label
-            settingsContainer.hideSettingsFrame = true; // hide highlight immediately
-            // Start options slide-out + fade
+            settingsTransitionActive = true; 
+            settingsHeaderVisible = false;   
+            settingsContainer.hideSettingsFrame = true; 
+            
             settingsOptionsExitAnim.start();
         }
     function refreshExhaustState() {
@@ -493,7 +497,7 @@ Item {
         if (typeof TEL !== 'undefined' && TEL.saveExhaust) {
             TEL.saveExhaust(exhaustState);
         } else {
-            // Fallback XHR write
+            
             try {
                 var xhr = new XMLHttpRequest();
                 xhr.open('GET', Qt.resolvedUrl('../../data/data.json'));
@@ -511,11 +515,11 @@ Item {
                 xhr.send();
             } catch(e) {}
         }
-    // Keep submenu alive
+    
         _exhaustAutoExit = false;
     submenuInactivityTimer.restart();
     }
-    // Exhaust pulse trigger
+    
     onExhaustStateChanged: {
         if (exhaustContainer.visible && exhaustPulse && exhaustPulse.restart) {
             exhaustPulse.restart();
@@ -536,7 +540,7 @@ Item {
         root[p] = nv; // update local
         if (windowRoot) windowRoot[p] = nv; // update parent
         submenuInactivityTimer.restart();
-    // Persist via Telemetry
+    
         if (typeof TEL !== 'undefined' && TEL.saveSuspension) {
             TEL.saveSuspension(windowRoot ? windowRoot.fr : root.fr,
                                windowRoot ? windowRoot.fl : root.fl,
@@ -609,7 +613,7 @@ Item {
                 } else if (root.currentSubmenu === 'exhaust') {
                     toggleExhaust();
                     } else if (root.currentSubmenu === 'settings') {
-                    // Same confirm flash style as main menu
+                    
                     if (!settingsConfirm.running) settingsConfirm.start();
                     console.log('[settings] select placeholder ->', settingsItems[settingsIndex]);
                     submenuInactivityTimer.restart();
@@ -621,12 +625,12 @@ Item {
                 inactivityTimer.restart();
                 return;
             }
-            // Enter submenu
+            
             var sel = root.menuItems[root.menuIndex];
             if (sel === 'suspension') {
                 scheduleSubmenuEnter('suspension');
             } else if (sel === 'exhaust') {
-                // Enter exhaust submenu
+                
                 scheduleSubmenuEnter('exhaust');
                 return;
             } else if (sel === 'reset trip') {
@@ -648,7 +652,7 @@ Item {
     function resetTrip() {
         try {
             if (typeof TEL !== 'undefined' && TEL.saveTrip) {
-                TEL.saveTrip(0.0); // only trip reset
+                TEL.saveTrip(0.0); 
             }
             if (windowRoot) windowRoot.tripValue = 0.0; // immediate UI update
             if (windowRoot && windowRoot.animateTripReset) windowRoot.animateTripReset();
@@ -656,6 +660,7 @@ Item {
         inactivityTimer.restart();
     }
 
+    // CONFIRMATION ANIMATION
     // CONFIRMATION ANIMATION
     SequentialAnimation {
         id: selectionConfirm
@@ -673,7 +678,7 @@ Item {
             _queuedSubmenuName = '';
         }
     ParallelAnimation {
-            // Avoid binding loop: capture starting colors explicitly
+            
             PropertyAnimation { target: frame; property: 'scale'; from: 1; to: 1.08; duration: 105; easing.type: Easing.OutCubic }
             PropertyAnimation { target: frame; property: 'border.width'; from: 2; to: 5; duration: 105; easing.type: Easing.OutCubic }
             ColorAnimation { target: frame; property: 'color'; from: frame.baseColor; to: frame.flashColor; duration: 105; easing.type: Easing.OutCubic }
@@ -687,6 +692,7 @@ Item {
         }
     }
 
+    // FADE ANIMATIONS
     // FADE ANIMATIONS
     NumberAnimation { id: menuFadeOut; target: root; property: 'menuFade'; duration: 250; easing.type: Easing.OutCubic; onStopped: {
             if (_pendingSubmenuEntry) {
@@ -720,8 +726,9 @@ Item {
     property bool _pendingSubmenuEntry: false
     property string _pendingSubmenuExit: ''
 
-        // SETTINGS SUBMENU UI (add near end to avoid interfering with existing layout layering)
-        Item {
+        
+    // SETTINGS SUBMENU UI
+    Item {
             id: settingsContainer
             anchors.fill: submenuLayer
             visible: root.inSubmenu && root.currentSubmenu === 'settings'
@@ -736,8 +743,8 @@ Item {
             Rectangle {
                 id: settingsFrame
                 anchors.horizontalCenter: parent.horizontalCenter
-                anchors.horizontalCenterOffset: 75 // shifted right
-                // Keep frame vertically centered (like main menu frame) and move items instead
+                anchors.horizontalCenterOffset: 75 
+                
                 y: settingsContainer.centerY + settingsContainer.verticalShift + 20 - height/2
                 radius: 6
                 height: settingsContainer.settingsFontSelected * 1.25
@@ -748,7 +755,7 @@ Item {
                 opacity: settingsContainer.opacity * (settingsContainer.hideSettingsFrame ? 0 : 1)
                 scale: 1
                 Behavior on y { NumberAnimation { duration: animMs; easing.type: Easing.OutCubic } }
-                // Selection confirm animation (mirrors main menu selectionConfirm)
+                
                 SequentialAnimation {
                     id: settingsConfirm
                     running: false
@@ -766,14 +773,16 @@ Item {
                     }
                 }
             }
-            Item { // options wrapper for slide-in
+            Item {
                 id: settingsOptions
                 anchors.fill: parent
+                transformOrigin: Item.Left
+                scale: 1
                 Repeater {
                 model: settingsItems.length
                 delegate: Text {
                     property int idx: index
-                    // circular distance like main menu
+                    
                     property int n: settingsItems.length
                     property int raw: idx - settingsIndex
                     property int dist: {
@@ -784,7 +793,7 @@ Item {
                     }
                     text: settingsItems[idx]
                     anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.horizontalCenterOffset: 80 // shift list right
+                    anchors.horizontalCenterOffset: 80 
                     y: settingsContainer.centerY + settingsContainer.verticalShift + 20 + dist * settingsContainer.optionSpacing - height/2
                     font.pixelSize: (dist === 0 ? settingsContainer.settingsFontSelected : settingsContainer.settingsFontDim)
                     color: 'white'
@@ -797,9 +806,9 @@ Item {
                     visible: opacity > 0.01
                 }
                 }
-            } // end options wrapper
+            }
             Text {
-                // small header label
+                
                 id: settingsHeader
                 text: 'settings'
                 anchors.top: parent.top
@@ -813,7 +822,8 @@ Item {
             }
         }
 
-    // Flying label for settings transition
+    
+    // FLYING LABEL (settings transition)
     Text {
         id: settingsFly
         text: 'settings'
@@ -826,22 +836,22 @@ Item {
     scale: 1
     }
 
-    // Enter animation for settings (position + scale + then options slide)
-    SequentialAnimation {
+    
+    ParallelAnimation {
         id: settingsEnterAnim
         running: false
         onFinished: {
             settingsFly.visible = false;
             settingsHeaderVisible = true;
-            // Show options
+            
             settingsOptionsAnim.start();
-            root.inSubmenu = true; // now officially inside submenu
+            root.inSubmenu = true; 
             settingsTransitionActive = false;
         }
         PropertyAnimation { id: settingsEnterAnim_animX; target: settingsFly; property: 'x'; duration: 260; easing.type: Easing.InOutCubic }
         PropertyAnimation { id: settingsEnterAnim_animY; target: settingsFly; property: 'y'; duration: 260; easing.type: Easing.InOutCubic }
         PropertyAnimation { id: settingsEnterAnim_animScale; target: settingsFly; property: 'scale'; duration: 260; easing.type: Easing.InOutCubic }
-        // Expose for setup
+        
         property alias animX: settingsEnterAnim_animX
         property alias animY: settingsEnterAnim_animY
         property alias animScale: settingsEnterAnim_animScale
@@ -853,32 +863,39 @@ Item {
         PropertyAnimation { target: settingsOptions; property: 'x'; from: settingsOptions.x; to: 0; duration: 260; easing.type: Easing.OutCubic }
         PropertyAnimation { target: settingsOptions; property: 'opacity'; from: 0; to: 1; duration: 200; easing.type: Easing.OutCubic }
     }
-    // Options exit (fade + slight slide right)
+    
     ParallelAnimation {
         id: settingsOptionsExitAnim
         running: false
-        onStarted: { /* keep current x as from */ }
+        onStarted: {
+            
+            settingsOptions.scale = 1;
+        }
         onFinished: {
-            // Prepare flying label to grow back to frame center
+            
             var headerPos = settingsHeader.mapToItem(root, settingsHeader.width/2, settingsHeader.height/2);
             settingsFly.text = 'settings';
-            settingsFly.font.pixelSize = root.selectedFont * 0.20/ root.selectedFont; // will be overridden by scale
+            settingsFly.font.pixelSize = root.selectedFont * 0.20/ root.selectedFont; 
             settingsFly.x = headerPos.x - settingsFly.width/2;
             settingsFly.y = headerPos.y - settingsFly.height/2;
-            settingsFly.scale = (base * 0.20) / root.selectedFont; // start small
+            settingsFly.scale = (base * 0.20) / root.selectedFont; 
             settingsFly.opacity = 1;
             settingsFly.visible = true;
-            // target = original frame center
+            
             var framePos = frame.mapToItem(root, frame.width/2, frame.height/2);
             settingsExitAnim.animX.from = settingsFly.x; settingsExitAnim.animY.from = settingsFly.y; settingsExitAnim.animScale.from = settingsFly.scale;
             settingsExitAnim.animX.to = framePos.x - settingsFly.width/2; settingsExitAnim.animY.to = framePos.y - settingsFly.height/2; settingsExitAnim.animScale.to = 1;
             settingsExitAnim.start();
+            
+            settingsOptions.scale = 1;
         }
-        PropertyAnimation { target: settingsOptions; property: 'opacity'; to: 0; duration: 180; easing.type: Easing.InOutCubic }
-        PropertyAnimation { target: settingsOptions; property: 'x'; to: root.width * 0.15; duration: 240; easing.type: Easing.InOutCubic }
+        
+        PropertyAnimation { target: settingsOptions; property: 'x'; to: root.width * 0.25; duration: 300; easing.type: Easing.InOutCubic }
+        PropertyAnimation { target: settingsOptions; property: 'scale'; from: 1; to: 1.25; duration: 300; easing.type: Easing.InOutCubic }
+        PropertyAnimation { target: settingsOptions; property: 'opacity'; from: 1; to: 0; duration: 240; easing.type: Easing.OutCubic }
     }
-    // Reverse flying label animation back to main menu frame
-    SequentialAnimation {
+    
+    ParallelAnimation {
         id: settingsExitAnim
         running: false
         onFinished: {
@@ -887,17 +904,14 @@ Item {
             root.currentSubmenu = '';
             submenuFade = 0;
             settingsTransitionActive = false;
-            frameHideOverride = false; // show frame again per binding
+            frameHideOverride = false;
             if (root._settingsAutoExit) root.menuActive = false; else { root.menuActive = true; inactivityTimer.restart(); }
             root._settingsAutoExit = false;
         }
-        // Phase 1: scale up in place
-        PropertyAnimation { id: settingsExitAnim_animScale; target: settingsFly; property: 'scale'; duration: 180; easing.type: Easing.OutCubic }
-        // Phase 2: translate to center (keep final scale)
-        ParallelAnimation {
-            PropertyAnimation { id: settingsExitAnim_animX; target: settingsFly; property: 'x'; duration: 220; easing.type: Easing.InOutCubic }
-            PropertyAnimation { id: settingsExitAnim_animY; target: settingsFly; property: 'y'; duration: 220; easing.type: Easing.InOutCubic }
-        }
+        
+        PropertyAnimation { id: settingsExitAnim_animX; target: settingsFly; property: 'x'; duration: 260; easing.type: Easing.InOutCubic }
+        PropertyAnimation { id: settingsExitAnim_animY; target: settingsFly; property: 'y'; duration: 260; easing.type: Easing.InOutCubic }
+        PropertyAnimation { id: settingsExitAnim_animScale; target: settingsFly; property: 'scale'; duration: 260; easing.type: Easing.InOutCubic }
         property alias animX: settingsExitAnim_animX
         property alias animY: settingsExitAnim_animY
         property alias animScale: settingsExitAnim_animScale
