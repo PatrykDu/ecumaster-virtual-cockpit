@@ -1,4 +1,5 @@
 import QtQuick 2.15
+// LEFT CLUSTER ROOT
 Item {
     id: root
     property real base: 110
@@ -40,7 +41,6 @@ Item {
     
     property bool frameHideOverride: false
 
-    // Internal flags controlling exit animation
     property bool menuClosing: false     // true while fading out main menu
     property bool clockRaised: false     // controls clock vertical position (replaces direct menuActive dependency)
 
@@ -64,7 +64,6 @@ Item {
     }
     onSelectedFontChanged: if (menuItems.length > 0) { selectedTextWidth = menuFontMetrics.advanceWidth(menuItems[menuIndex]); frame.targetWidth = (selectedTextWidth>0?selectedTextWidth:base)+base*0.36 }
     onMenuIndexChanged: if (menuItems.length > 0) { selectedTextWidth = menuFontMetrics.advanceWidth(menuItems[menuIndex]); frame.targetWidth = (selectedTextWidth>0?selectedTextWidth:base)+base*0.36 }
-    // Fade-in when menu first activated from clock-only view
     onMenuActiveChanged: {
         if (menuActive && !inSubmenu) {
             // Opening main menu: raise clock immediately, fade items in
@@ -106,9 +105,9 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
     anchors.top: parent.top
     anchors.topMargin: -base * 1.2 + (clockRaised ? 0 : base * 1)
-    // Clock stays visible except inside a non-settings submenu
-    opacity: (inSubmenu && !(currentSubmenu === 'settings' || settingsTransitionActive)) ? 0 : 1
+    opacity: ((_pendingSubmenuEntry || inSubmenu) && !(currentSubmenu === 'settings' || settingsTransitionActive)) ? 0 : 1
     Behavior on anchors.topMargin { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+    Behavior on opacity { NumberAnimation { duration: root.menuFadeDuration; easing.type: Easing.InOutCubic } }
     }
 
     
@@ -180,7 +179,6 @@ Item {
         width: parent.width * 0.65
         fillMode: Image.PreserveAspectFit
         smooth: true
-    // Font metrics for settings dynamic width
     FontMetrics { id: settingsMetrics; font.pixelSize: settingsContainer.settingsFontSelected }
     opacity: (inSubmenu && currentSubmenu === 'suspension') ? submenuFade : 0
     }
@@ -198,7 +196,8 @@ Item {
     readonly property real valRL: rl
     readonly property real valRR: rr
 
-        Item {
+    // SUSPENSION SUBMENU
+    Item {
             id: suspensionContainer
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
@@ -361,6 +360,7 @@ Item {
                 scale: 1
             }
         }
+    // EXHAUST LABEL
     Text {
             id: exhaustLabel
             text: root.exhaustState ? 'flaps open' : 'flaps closed'
@@ -380,7 +380,6 @@ Item {
     }
 
     
-    // STATE
     property bool inSubmenu: false
     property string currentSubmenu: ''
     
@@ -575,7 +574,7 @@ Item {
         }
     }
 
-    // NAVIGATION SIGNALS
+    // NAVIGATION EVENTS
     Connections {
         target: TEL
         function onNavUpEvent() {
@@ -692,8 +691,7 @@ Item {
         inactivityTimer.restart();
     }
 
-    // CONFIRMATION ANIMATION
-    // CONFIRMATION ANIMATION
+    // SELECTION CONFIRM ANIMATION
     SequentialAnimation {
         id: selectionConfirm
         running: false
@@ -724,8 +722,7 @@ Item {
         }
     }
 
-    // FADE ANIMATIONS
-    // FADE ANIMATIONS
+    // FADE ANIMATIONS (MENU / SUBMENU)
     NumberAnimation { id: menuFadeOut; target: root; property: 'menuFade'; duration: menuClosing ? menuFadeOutShortDuration : menuFadeDuration; easing.type: Easing.OutCubic; onStopped: {
             if (_pendingSubmenuEntry) {
                 _pendingSubmenuEntry = false;
@@ -759,12 +756,11 @@ Item {
                 }
             }
         } }
-    // Internal flags
     property bool _pendingSubmenuEntry: false
     property string _pendingSubmenuExit: ''
 
         
-    // SETTINGS SUBMENU UI
+    // SETTINGS SUBMENU
     Item {
             id: settingsContainer
             anchors.fill: submenuLayer
@@ -774,7 +770,6 @@ Item {
             property real settingsFontSelected: base * 0.26
             property real settingsFontDim: base * 0.16
             property real centerY: height/2
-            // Upward shift to align header with main menu vertical position
             property real verticalShift: -base * 0.155
             property bool hideSettingsFrame: false
             property real settingsSelectedTextWidth: 0
@@ -862,7 +857,7 @@ Item {
         }
 
     
-    // FLYING LABEL (settings transition)
+    // SETTINGS FLYING LABEL (TRANSITION)
     Text {
         id: settingsFly
         text: 'settings'
@@ -876,6 +871,7 @@ Item {
     }
 
     
+    // SETTINGS ENTER ANIMATION
     ParallelAnimation {
         id: settingsEnterAnim
         running: false
@@ -895,6 +891,7 @@ Item {
         property alias animY: settingsEnterAnim_animY
         property alias animScale: settingsEnterAnim_animScale
     }
+    // SETTINGS OPTIONS FADE-IN
     ParallelAnimation {
         id: settingsOptionsAnim
         running: false
@@ -903,6 +900,7 @@ Item {
         PropertyAnimation { target: settingsOptions; property: 'opacity'; from: 0; to: 1; duration: 200; easing.type: Easing.OutCubic }
     }
     
+    // SETTINGS OPTIONS EXIT (TO HEADER)
     ParallelAnimation {
         id: settingsOptionsExitAnim
         running: false
@@ -936,6 +934,7 @@ Item {
         PropertyAnimation { target: settingsOptions; property: 'opacity'; from: 1; to: 0; duration: 240; easing.type: Easing.OutCubic }
     }
     
+    // SETTINGS EXIT ANIMATION (HEADER BACK TO FRAME)
     ParallelAnimation {
         id: settingsExitAnim
         running: false

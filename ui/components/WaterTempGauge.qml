@@ -1,19 +1,13 @@
 import QtQuick 2.15
 
-// WaterTempGauge: Mirrored version of FuelGauge for coolant / water temperature.
-// Labels: C (cold) at bottom, 95 (normal) mid, H (hot) at top.
-// Geometry is mirrored horizontally (guide + slanted fill on the RIGHT side instead of left).
-// Fill extends leftwards from the irregular right edge polyline.
+// WATER TEMP GAUGE
 Item {
     id: root
-    // External temperature value (0..150). Only 50..130 is displayed as fill.
     property int tempC: 0
-    // Backward compatibility read-only style: level mirrors tempC (not an alias)
     property int level: tempC
     property int minVisible: 50
     property int maxVisible: 130
 
-    // Bars (labels updated to temperature values)
     property var bars: [
         { w: 150, shift: 5,  thick: 6, label: '50' },
         { w: 75,  shift: 15, thick: 3 },
@@ -22,7 +16,6 @@ Item {
         { w: 155, shift: 80, thick: 6, label: '130' }
     ]
 
-    // Icon configuration
     property int iconSize: 60
     property int iconGap: 8                // gap between icon and label
     property url iconSource: '../../assets/water_temp.png'
@@ -30,7 +23,6 @@ Item {
     property real iconVerticalLift: (iconSize - fullLabelSize)/2
     property int iconExtraLift: -4
 
-    // Appearance customization (mirrors FuelGauge defaults)
     property color barColor: 'white'
     property color labelColor: 'white'
     property int labelGap: 8               // gap from bar to label (label on LEFT side for mirrored gauge)
@@ -38,34 +30,26 @@ Item {
     property int fullLabelSize: 38
     property int vSpacing: Math.round(height / (bars.length + 0.5))
 
-    // Fill configuration (constant width parallelogram, solid color) – extends LEFT from right edge polyline
     property int fillWidth: 155
     property bool clampInside: false
-    // Temperature color thresholds (will be used as gradient anchors, not abrupt states)
-    property int lowTempThreshold: 80      // below => blue
+    property int lowTempThreshold: 80
     property int highTempThreshold: 114    // above => red
     property color lowTempColor: '#0078ff'
     property color neutralTempColor: '#F0F0E8'
     property color highTempColor: '#ff2a00'
-    // New gradient range definitions
     property int coldGradientStart: 70   // <= -> fully blue
     property int coldGradientEnd: 80     // >= -> fully neutral
     property int hotGradientStart: 110   // <= -> still neutral
     property int hotGradientEnd: 120     // >= -> fully red
-    // Extension ONLY for fill (not for guide). Here we extend rightwards (since guide sits exactly on right edge);
-    // then subtract this when building fill left points.
     property int rightPad: 1
     property real fillInwardNudge: 0.5 // keeps fill just inside guide to avoid AA seam
 
-    // Slight extra right extension ONLY for top 'H' bar to hide seam with guide.
     property int topBarRightExtend: 2
 
-    // Guide line settings (mirrored: at right irregular edge)
     property bool showRightGuide: true
     property color guideColor: 'white'
     property int guideWidth: bars.length ? bars[0].thick : 6
 
-    // Precomputed full RIGHT edge points (no rightPad so bars touch guide)
     property var fullRightEdgePoints: []
 
     function barCenterY(i) { return height - (i + 0.5) * vSpacing }
@@ -87,6 +71,7 @@ Item {
         fillCanvas.requestPaint()
     }
 
+    // FILL CANVAS
     Canvas {
         id: fillCanvas
         anchors.fill: parent
@@ -104,7 +89,6 @@ Item {
             if (totalSpan <= 0) return
             var currentTopY = yBottom - totalSpan * frac
 
-            // Build partial right edge
             var rightPts = []
             rightPts.push({x: rightX(bars[0].shift), y: yBottom})
             for (var i = 1; i < bars.length; ++i) {
@@ -132,7 +116,6 @@ Item {
                 }
                 if (widthUsed < 20) widthUsed = 20
             }
-            // Adjust right edge outward a bit then compute left parallelogram points
             for (var rp = 0; rp < rightPts.length; ++rp) rightPts[rp].x += (rightPad - fillInwardNudge)
             var leftPts = []
             for (var p = 0; p < rightPts.length; ++p) leftPts.push({x: rightPts[p].x - widthUsed, y: rightPts[p].y})
@@ -156,7 +139,6 @@ Item {
     onTempCChanged: fillCanvas.requestPaint()
     Component.onCompleted: computeFullRightEdge()
 
-    // Color blending helpers
     function blendChannel(a,b,t){ return Math.round(a + (b-a)*t) }
     function hexToRgb(col) {
         var h = String(col)
@@ -172,7 +154,6 @@ Item {
         function c(v){ var s=v.toString(16); return s.length===1 ? '0'+s : s }
         return '#'+c(r)+c(g)+c(b)
     }
-    // Gradient: blue (<=70) -> blend 70-80 -> neutral 80-110 -> blend 110-120 -> red >=120
     function tempFillColor(tC) {
         var coldStart = coldGradientStart
         var coldEnd = coldGradientEnd
@@ -197,7 +178,7 @@ Item {
         return highTempColor
     }
 
-    // Bars + labels drawn ABOVE fill but BELOW guide line (mirrored)
+    // BARS
     Repeater {
         model: bars.length
         delegate: Item {
@@ -214,7 +195,7 @@ Item {
                 x: root.width - bars[index].shift - width
                 color: barColor
             }
-            Text { // label (to LEFT of bar)
+            Text {
                 id: labelText
                 visible: typeof bars[index].label !== 'undefined'
                 text: bars[index].label
@@ -226,7 +207,6 @@ Item {
                 x: root.width - bars[index].shift - bars[index].w - labelGap - width
                 renderType: Text.NativeRendering
             }
-            // Water temp icon for bottom 50 label (placed to LEFT)
             Item {
                 visible: bars[index].label === '50'
                 width: iconSize
@@ -237,9 +217,7 @@ Item {
                 Rectangle {
                     anchors.centerIn: parent
                     width: Math.max(4, parent.width - 2*iconBackingSideTrim)
-                    // Reduce height (trim top/bottom) so it does not stick out
                     height: parent.height - 12
-                    // Icon background: keep blue when cold, red when hot, pure white in neutral band
                     color: root.tempFillColor(root.tempC)
                     radius: 4
                     Behavior on color { ColorAnimation { duration: 300; easing.type: Easing.InOutQuad } }
@@ -255,7 +233,7 @@ Item {
         }
     }
 
-    // Static full guide line on RIGHT edge
+    // GUIDE CANVAS
     Canvas {
         id: guideCanvas
         anchors.fill: parent

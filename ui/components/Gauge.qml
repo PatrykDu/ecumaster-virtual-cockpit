@@ -1,6 +1,8 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 
+// GAUGE COMPONENT
+
 Item {
     id: root
     property real min: 0
@@ -8,19 +10,16 @@ Item {
     property real value: 0
     property real majorStep: 10
     property real minorStep: 5
-    // Adjust angles (removed +90° canvas rotations): was -220..40 with rotate; now -130..130
     property real startAngle: -130
     property real endAngle: 130
     property real orientationOffset: -90 // degrees: rotate whole gauge so 0 is up
     property real redFrom: 80
     property real redTo: 100
-    // New warning zone
     property real warnFrom: -1
     property real warnTo: -1
     property color warnColor: '#e6c400'
     property string label: ""
 
-    // New customizable styling properties
     property real ringWidth: 26
     property real tickMajorLen: 50
     property real tickMinorLen: 28
@@ -34,17 +33,13 @@ Item {
     property color centerLabelColor: '#bbbbbb'
     property bool abbreviateThousands: false   // for scales like RPM 0..8000 show 0..8
     property bool showValueInThousands: false  // center value division
-    // New flags to optionally hide built‑in center texts (for nested inner circle usage)
     property bool showCenterValue: true
     property bool showCenterLabel: true
-    // New: independent radial distance for labels (instead of derived from font size)
     property real labelOffsetFactor: 0.9 // kept for backwards compatibility (unused now)
     property real labelDistance: 42       // px distance inward from end of major tick
-    // New: control whether labels are painted on canvas or via Text items
     property bool drawCanvasLabels: true
     property bool useTextLabels: false
 
-    // Needle customization
     property color needleColor: '#ff3333'
     property real needleTipInset: 14       // distance from outer radius to needle tip
     property real needleTail: 60           // tail length behind center (px)
@@ -64,12 +59,12 @@ Item {
     onNeedleTipInsetChanged: needleCanvas.requestPaint()
     onNeedleTailChanged: needleCanvas.requestPaint()
     onNeedleThicknessChanged: needleCanvas.requestPaint()
-    // New: repaint scale when dynamic zones change
     onRedFromChanged: scaleCanvas.requestPaint()
     onRedToChanged: scaleCanvas.requestPaint()
     onWarnFromChanged: scaleCanvas.requestPaint()
     onWarnToChanged: scaleCanvas.requestPaint()
 
+    // SCALE CANVAS
     Canvas {
         id: scaleCanvas
         anchors.fill: parent
@@ -142,7 +137,7 @@ Item {
         }
     }
 
-    // QML Text based labels (more reliable scaling on some systems)
+    // TEXT LABELS (WHEN useTextLabels TRUE)
     Repeater {
         id: labelsRepeater
         model: useTextLabels ? Math.floor((root.max - root.min)/root.majorStep) + 1 : 0
@@ -161,7 +156,8 @@ Item {
         }
     }
 
-    Text { // center label value
+    // CENTER VALUE
+    Text {
         id: valueText
         visible: root.showCenterValue
         anchors.horizontalCenter: parent.horizontalCenter
@@ -182,7 +178,7 @@ Item {
         font.pixelSize: 40
     }
 
-    // needle
+    // NEEDLE
     Item {
         id: needle
         width: root.width

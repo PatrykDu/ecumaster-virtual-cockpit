@@ -2,9 +2,10 @@ import QtQuick 2.15
 import QtQuick.Window 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import "components" // add custom components (Gauge.qml, Icons.qml)
+import "components"
 
-// Main UI for virtual cluster
+// MAIN CLUSTER WINDOW
+
 Window {
     id: root
     width: WIDTH
@@ -15,8 +16,7 @@ Window {
     property bool splashDone: false
     property bool firstData: false
     property int odometerValue: 0
-    property real tripValue: 0.0   // changed to real (float)
-    // Suspension stiffness (loaded from data.json)
+    property real tripValue: 0.0
     property real fr: 0
     property real fl: 0
     property real rr: 0
@@ -25,7 +25,6 @@ Window {
     signal requestStart()
 
     Component.onCompleted: {
-        // safety timeout
         splashTimer.start()
         loadOdometer()
         odometerPoll.start()
@@ -50,7 +49,7 @@ Window {
         onTriggered: if (!root.splashDone) startTransition()
     }
 
-    // Splash Overlay
+    // SPLASH OVERLAY
     Rectangle {
         id: splash
         anchors.fill: parent
@@ -59,7 +58,6 @@ Window {
         z: 10
         visible: !root.splashDone
 
-        // Fullscreen mazdaspeed image (fills screen, preserves aspect)
         Image {
             id: splashFull
             anchors.fill: parent
@@ -78,24 +76,61 @@ Window {
         ScriptAction { script: splash.visible = false }
     }
 
-    // Main content container
+    // MAIN CONTENT
     Item {
         id: content
         anchors.fill: parent
         opacity: root.splashDone ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.OutQuad } }
 
-        // Concentric layout: Outer RPM ring + inner speed circle
-        Item {
-            id: clusterCenter
-            // replace centerIn with explicit centers + downward offset
+    // CENTER GAUGE (RPM + SPEED)
+    Item {
+            id: checkEngineIcon
+            visible: TEL && TEL.checkEngine
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
-            anchors.verticalCenterOffset: parent.height * 0.10 // shift down (tune as needed)
+            anchors.verticalCenterOffset: -230
+            property real baseHeight: parent.width * 0.04
+            height: baseHeight
+            width: engineImage.width
+            z: -1
+            Image {
+                id: engineImage
+                height: parent.height
+                width: height * (sourceSize.width > 0 && sourceSize.height > 0 ? sourceSize.width / sourceSize.height : 1)
+                source: Qt.resolvedUrl('../assets/check_engine.png')
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+                cache: true
+            }
+            Rectangle {
+                id: checkEngineBg
+                width: engineImage.width - 10
+                height: engineImage.height
+                anchors.centerIn: engineImage
+                radius: height * 0.18
+                color: '#ff9900'
+                opacity: 1
+                SequentialAnimation on opacity {
+                    id: pulse
+                    running: checkEngineIcon.visible
+                    loops: Animation.Infinite
+                    PropertyAnimation { to: 0.55; duration: 540; easing.type: Easing.InOutQuad }
+                    PropertyAnimation { to: 1; duration: 620; easing.type: Easing.InOutQuad }
+                }
+                onVisibleChanged: if (!visible) opacity = 1
+                z: -1
+            }
+        }
+
+        Item {
+            id: clusterCenter
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: parent.height * 0.10
             width: parent.height * 1.20 // size of the center gauge
             height: width
 
-            // Outer RPM gauge (ring only)
             Gauge {
                 id: rpmRing
                 anchors.fill: parent
@@ -113,14 +148,14 @@ Window {
                 showCenterLabel: false
                 useTextLabels: true
                 drawCanvasLabels: false
-                fontSizeLabels: width * 0.07    // RPM number size
-                labelDistance: width * 0.05    // adjust inward so they sit nicely
+                fontSizeLabels: width * 0.07
+                labelDistance: width * 0.05
                 ringWidth: width * 0.04
                 tickMajorLen: width * 0.075
                 tickMinorLen: width * 0.045
                 backgroundArcColor: "#1d1d1d"
                 tickColorMajor: "#e6e6e6"
-                tickColorMinor: "#5f5f5f" // fixed missing digit
+                tickColorMinor: "#5f5f5f"
                 redlineColor: "#d62828"
                 needleColor: '#ff4040'
                 needleTipInset: width * 0.015
@@ -129,10 +164,8 @@ Window {
                 warnFrom: 5300
                 warnTo: 6000
                 warnColor: '#ffcc33'
-                // red zone dynamic
                 property int oilTempLocal: TEL ? TEL.oilTemp : 0
                 property int dynRedline: redlineForOilTemp(oilTempLocal)
-                // Animate red zone boundary
                 Behavior on redFrom { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
                 Behavior on redTo { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
                 onDynRedlineChanged: {
@@ -141,7 +174,7 @@ Window {
                 }
             }
 
-            // Inner circle (speed display) - simplified (only one circle now)
+            // SPEED INNER (SPEED / LOGO)
             Item {
                 id: speedInner
                 anchors.centerIn: parent
@@ -150,7 +183,6 @@ Window {
                 layer.enabled: true
                 layer.smooth: true
 
-                // Opaque base circle to hide RPM needle during gradient cross-fade
                 Canvas {
                     id: speedInnerBase
                     anchors.fill: parent
@@ -163,10 +195,8 @@ Window {
                     Component.onCompleted: requestPaint()
                 }
 
-                // Dynamic RPM state: 0 neutral, 1 warn (yellow), 2 red
                 property int rpmState: (TEL.rpm >= rpmRing.redFrom ? 2 : (TEL.rpm >= rpmRing.warnFrom && TEL.rpm <= rpmRing.warnTo ? 1 : 0))
 
-                // Three layered gradients with animated cross‑fade
                 Item { anchors.fill: parent; id: gradientStack }
                 Canvas { // neutral (gray)
                     id: neutralBg
@@ -224,16 +254,12 @@ Window {
                     Component.onCompleted: requestPaint()
                 }
 
-                // Force repaints when state changes (so newly faded-in canvas has fresh frame)
                 onRpmStateChanged: { neutralBg.requestPaint(); warnBg.requestPaint(); redBg.requestPaint() }
 
                 Column {
                     id: speedStack
                     anchors.centerIn: parent
-                    // Increase logo by 50% WITHOUT moving speed digits:
-                    // Enlarging top item would push Column center down by delta/2.
-                    // We counter with a negative verticalCenterOffset.
-                    anchors.verticalCenterOffset: -speedInner.width * 0.0375 // ( (0.6*1.5 - 0.6) * 0.25 ) / 2 = 0.0375
+                    anchors.verticalCenterOffset: -speedInner.width * 0.0375
                     spacing: 4
                     property real logoScale: 1.5
                     Image {
@@ -264,8 +290,8 @@ Window {
             }
         }
 
-        // Left turn icon (with green backing) – positioned left/top relative to main gauge
-        Item {
+    // LEFT TURN INDICATOR
+    Item {
             id: leftTurnIndicator
             width: clusterCenter.width * 0.11
             height: width
@@ -297,8 +323,8 @@ Window {
             Connections { target: TEL; function onLeftBlinkChanged(v) { leftTurnIndicator.active = v } }
         }
 
-        // Right turn icon (mirrored placement) – to the right of main gauge (inside content)
-        Item {
+    // RIGHT TURN INDICATOR
+    Item {
             id: rightTurnIndicator
             width: clusterCenter.width * 0.11
             height: width
@@ -329,17 +355,18 @@ Window {
             Connections { target: TEL; function onRightBlinkChanged(v) { rightTurnIndicator.active = v } }
         }
 
-        FuelGauge {
+    // FUEL GAUGE
+    FuelGauge {
             id: fuelGauge
             anchors.left: parent.left
             anchors.bottom: parent.bottom
-            anchors.leftMargin: width * 0.02 + 25 // shifted 20px to the right (kept)
-            anchors.bottomMargin: height * 0.02 + 20 // raised 20px upward
+            anchors.leftMargin: width * 0.02 + 25
+            anchors.bottomMargin: height * 0.02 + 20
             width: root.width * 0.22
             height: root.height * 0.32
         }
-        // New LeftCluster rectangle (2:3 width:height ratio)
-        LeftCluster {
+    // LEFT CLUSTER
+    LeftCluster {
             id: leftCluster
             base: clusterCenter.width * 0.15
             heightOverride: base * 0.3   // lowered height (instead of 3 * base)
@@ -354,7 +381,8 @@ Window {
             rl: root.rl
             windowRoot: root
         }
-        WaterTempGauge {
+    // WATER TEMP GAUGE
+    WaterTempGauge {
             id: waterTempGauge
             anchors.right: parent.right
             anchors.bottom: parent.bottom
@@ -369,11 +397,12 @@ Window {
             anchors.bottom: waterTempGauge.top
             anchors.bottomMargin: 24
             anchors.right: waterTempGauge.left
-            anchors.rightMargin: -280 // adjust gap between cluster and water gauge (smaller = more to right)
+            anchors.rightMargin: -280
             width: root.width * 0.18
         }
 
-        Text { // Odometer display bottom-left (adjusted position)
+    // ODOMETER
+    Text {
             id: odometerText
             text: 'ODO: ' + root.odometerValue
             color: 'white'
@@ -385,7 +414,8 @@ Window {
             anchors.bottomMargin: 35
             z: 600
         }
-        Text { // Trip display bottom-right
+    // TRIP
+    Text {
             id: tripText
             text: 'TRIP: ' + tripValue.toFixed(1)
             color: 'white'
@@ -398,13 +428,13 @@ Window {
             z: 600
             property color baseColor: 'white'
             property bool flash: false
-            SequentialAnimation { // scale pulse
+            SequentialAnimation {
                 id: tripPulse
                 running: false
                 PropertyAnimation { target: tripText; property: 'scale'; to: 1.22; duration: 120; easing.type: Easing.OutCubic }
                 PropertyAnimation { target: tripText; property: 'scale'; to: 1.0; duration: 180; easing.type: Easing.InOutCubic }
             }
-            SequentialAnimation { // color flash (white -> red -> white)
+            SequentialAnimation {
                 id: tripFlash
                 running: false
                 ColorAnimation { target: tripText; property: 'color'; to: '#ff5050'; duration: 160 }
@@ -413,21 +443,17 @@ Window {
         }
     }
 
+    // FUNCTIONS
     function animateTripReset() {
         tripPulse.start();
         tripFlash.start();
     }
 
     function redlineForOilTemp(oilTemp) {
-        // Interpolation table (oil_temp_c -> redline_rpm)
-        // Based on provided photo (approx):
-        // 20:2500, 25:2750, 30:3000, 35:3250, 40:3500, 45:3850,
-        // 50:4200, 55:4500, 60:4800, 65:5100, 70:5400, 75:5700,
-        // 80:5994, 85:5994, 90:5994 (plateau from 80 up)
         var table = [
-            [20,2500],[25,2750],[30,3000],[35,3250],[40,3500],[45,3850],
-            [50,4200],[55,4500],[60,4800],[65,5100],[70,5400],[75,5700],
-            [80,5994]
+            [30,2500],[35,2750],[39,3000],[44,3250],[48,3500],[53,3850],
+            [58,4200],[62,4500],[67,4800],[71,5100],[76,5400],[80,5700],
+            [85,5994]
         ];
         if (oilTemp <= table[0][0]) return table[0][1];
         if (oilTemp >= table[table.length-1][0]) return table[table.length-1][1];
@@ -459,7 +485,6 @@ Window {
                         if (obj.fl !== undefined) root.fl = obj.fl;
                         if (obj.rr !== undefined) root.rr = obj.rr;
                         if (obj.rl !== undefined) root.rl = obj.rl;
-                        // Clamp to 1..32
                         function clamp(v) { return Math.max(1, Math.min(32, v)); }
                         root.fr = clamp(root.fr); root.fl = clamp(root.fl); root.rr = clamp(root.rr); root.rl = clamp(root.rl);
                         console.log('[data.json] loaded FR='+root.fr+' FL='+root.fl+' RR='+root.rr+' RL='+root.rl)

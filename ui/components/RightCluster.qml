@@ -1,17 +1,14 @@
 import QtQuick 2.15
 
-// RightCluster: vertical stack of small horizontal bar gauges (oil temp, water temp)
-// Bars show only 40–140°C range; below 40 -> empty, above 140 -> full.
+// RIGHT CLUSTER (OIL & WATER TEMPS)
 Item {
     id: root
     property int oilTemp: TEL ? TEL.oilTemp : 0
     property int waterTemp: TEL ? TEL.waterTemp : 0
 
-    // Display range for bar scaling
     property int tempBarMin: 40
     property int tempBarMax: 140
 
-    // Layout tuning
     property int rowHeight: 60
     property int iconSize: 46
     property int iconPaddingH: 8
@@ -21,19 +18,20 @@ Item {
     property color trackColor: '#404040'
     property int valueFontSize: 26
 
-    // Helper to compute dynamic color (blue <80, white 80-114, red >114)
     function tempColor(t) { return t < 80 ? '#1e66ff' : (t > 114 ? '#d62828' : 'white'); }
 
     implicitWidth: 320
     implicitHeight: (rowHeight * 2) + rowSpacing
 
+    // LAYOUT
     Column {
         id: rows
         anchors.fill: parent
         spacing: rowSpacing
 
         // Oil temperature row
-        Item {
+    // OIL TEMP ROW
+    Item {
             id: oilRow
             height: rowHeight
             width: parent.width
@@ -94,7 +92,8 @@ Item {
         }
 
         // Water temperature row
-        Item {
+    // WATER TEMP ROW
+    Item {
             id: waterRow
             height: rowHeight
             width: parent.width

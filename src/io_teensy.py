@@ -1,19 +1,13 @@
 from __future__ import annotations
-import os
-import struct
-import threading
-import time
-import sys
-import crcmod
-import serial  # type: ignore
-
+import os, struct, threading, time, sys
+import crcmod, serial  # type: ignore
 from telemetry import Telemetry
 import config
 
-# CRC16-X25 (poly=0x1021, init=0xFFFF, refin=True, refout=True, xorout=0xFFFF)
+# CRC16
 _crc_func = crcmod.mkCrcFun(0x11021, rev=True, initCrc=0xFFFF, xorOut=0xFFFF)
 
-class TeensyReader(threading.Thread):
+class TeensyReader(threading.Thread):  # READER THREAD
     def __init__(self, telemetry: Telemetry, demo: bool):
         super().__init__(daemon=True)
         self.telemetry = telemetry
@@ -59,10 +53,10 @@ class TeensyReader(threading.Thread):
                 pass
 
     def _consume_buffer(self, buf: bytearray):
-        # parse frames from buffer
+    # PARSE
         FRAME_LEN = config.FRAME_LEN_BYTES
         while len(buf) >= FRAME_LEN:
-            # search for magic
+            # MAGIC
             if buf[0] != (config.FRAME_MAGIC & 0xFF) or (len(buf) >= 2 and buf[1] != (config.FRAME_MAGIC >> 8) & 0xFF):
                 buf.pop(0)
                 continue
@@ -70,39 +64,35 @@ class TeensyReader(threading.Thread):
                 return
             frame = bytes(buf[:FRAME_LEN])
             del buf[:FRAME_LEN]
-            # Unpack header (little endian)
             try:
                 magic, ver, ln, rpm, vss_cm_s, flags, crc = struct.unpack('<HBBHHHH', frame)
             except struct.error:
                 continue
             if magic != config.FRAME_MAGIC or ver != config.FRAME_VERSION:
                 continue
-            # verify length field
             if ln != FRAME_LEN:
                 continue
-            # CRC compute over all but last 2 bytes
             calc_crc = _crc_func(frame[:-2])
             if calc_crc != crc:
                 continue
-            speed_kmh = (vss_cm_s / 100.0) * 0.036  # cm/s → km/h
+            speed_kmh = (vss_cm_s / 100.0) * 0.036
             self.telemetry.updateFromFrame(int(rpm), float(speed_kmh), int(flags))
 
     def _demo_loop(self):
-        # produce demo data ~60 Hz
+    # DEMO
         now = time.time()
         t = now - self.last_demo_t0
         self.telemetry.demoTick(t)
         time.sleep(1/60.0)
 
 
-def start(telemetry: Telemetry):
+def start(telemetry: Telemetry):  # START
     demo = config.DEMO_FALLBACK
     reader = TeensyReader(telemetry, demo)
     reader.start()
     return reader
 
-if __name__ == '__main__':
-    # Simple test harness
+if __name__ == '__main__':  # TEST
     tel = Telemetry()
     start(tel)
     try:

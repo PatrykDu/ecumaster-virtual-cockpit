@@ -2,8 +2,7 @@ from __future__ import annotations
 from PySide6.QtCore import QObject, Signal, Property, QMutex, QMutexLocker, Slot
 import os, json
 
-# Telemetry object exposed to QML.
-# Provides thread-safe property updates via signals.
+# TELEMETRY OBJECT
 
 class Telemetry(QObject):
     rpmChanged = Signal(int)
@@ -17,8 +16,9 @@ class Telemetry(QObject):
     fuelChanged = Signal(int)  # 0..100 percent
     waterTempChanged = Signal(int)  # coolant temperature (0..150 C)
     oilTempChanged = Signal(int)  # oil temperature (0..160 C typical)
+    checkEngineChanged = Signal(bool)
 
-    # Navigation button events for LeftCluster menu
+    # NAV EVENTS
     navUpEvent = Signal()
     navDownEvent = Signal()
     navLeftEvent = Signal()
@@ -36,10 +36,11 @@ class Telemetry(QObject):
         self._fuel = 0  # percent
         self._waterTemp = 0  # degrees C (0..150)
         self._oilTemp = 0  # degrees C (0..160)
+        self._checkEngine = False
         self._got_first = False
         self._mtx = QMutex()
 
-    # --- Navigation Slots (callable from QML) ---
+    # NAV SLOTS
     @Slot()
     def invokeNavUp(self):
         self.navUpEvent.emit()
@@ -68,7 +69,7 @@ class Telemetry(QObject):
 
     rpm = Property(int, getRpm, setRpm, notify=rpmChanged)
 
-    # Speed (km/h)
+    # SPEED
     def getSpeed(self) -> float:
         return self._speed
 
@@ -80,7 +81,7 @@ class Telemetry(QObject):
 
     speed = Property(float, getSpeed, setSpeed, notify=speedChanged)
 
-    # Left blink
+    # LEFT BLINK
     def getLeftBlink(self) -> bool:
         return self._leftBlink
 
@@ -92,7 +93,7 @@ class Telemetry(QObject):
 
     leftBlink = Property(bool, getLeftBlink, setLeftBlink, notify=leftBlinkChanged)
 
-    # Right blink
+    # RIGHT BLINK
     def getRightBlink(self) -> bool:
         return self._rightBlink
 
@@ -104,7 +105,7 @@ class Telemetry(QObject):
 
     rightBlink = Property(bool, getRightBlink, setRightBlink, notify=rightBlinkChanged)
 
-    # High beam
+    # HIGH BEAM
     def getHighBeam(self) -> bool:
         return self._highBeam
 
@@ -116,7 +117,7 @@ class Telemetry(QObject):
 
     highBeam = Property(bool, getHighBeam, setHighBeam, notify=highBeamChanged)
 
-    # Fog
+    # FOG
     def getFog(self) -> bool:
         return self._fog
 
@@ -128,7 +129,7 @@ class Telemetry(QObject):
 
     fog = Property(bool, getFog, setFog, notify=fogChanged)
 
-    # Park / Brake
+    # PARK
     def getPark(self) -> bool:
         return self._park
 
@@ -140,7 +141,7 @@ class Telemetry(QObject):
 
     park = Property(bool, getPark, setPark, notify=parkChanged)
 
-    # Fuel (0-100%)
+    # FUEL
     def getFuel(self) -> int:
         return self._fuel
 
@@ -154,7 +155,7 @@ class Telemetry(QObject):
 
     fuel = Property(int, getFuel, setFuel, notify=fuelChanged)
 
-    # Water temperature (0-150 C)
+    # WATER TEMP
     def getWaterTemp(self) -> int:
         return self._waterTemp
 
@@ -168,7 +169,7 @@ class Telemetry(QObject):
 
     waterTemp = Property(int, getWaterTemp, setWaterTemp, notify=waterTempChanged)
 
-    # Oil temperature (0-160 C)
+    # OIL TEMP
     def getOilTemp(self) -> int:
         return self._oilTemp
 
@@ -182,6 +183,18 @@ class Telemetry(QObject):
 
     oilTemp = Property(int, getOilTemp, setOilTemp, notify=oilTempChanged)
 
+    # CHECK ENGINE
+    def getCheckEngine(self) -> bool:
+        return self._checkEngine
+
+    def setCheckEngine(self, v: bool):
+        if v == self._checkEngine:
+            return
+        self._checkEngine = v
+        self.checkEngineChanged.emit(v)
+
+    checkEngine = Property(bool, getCheckEngine, setCheckEngine, notify=checkEngineChanged)
+
     def updateFromFrame(self, rpm: int, speed_kmh: float, flags: int):
         with QMutexLocker(self._mtx):
             self.setRpm(rpm)
@@ -191,11 +204,8 @@ class Telemetry(QObject):
             self.setHighBeam(bool(flags & (1 << 2)))
             self.setFog(bool(flags & (1 << 3)))
             self.setPark(bool(flags & (1 << 4)))
-            # Update fuel level from flags (example)
             self.setFuel((flags >> 5) & 0xFF)
-            # Water temp demo mapping (reuse fuel for now if not present)
             self.setWaterTemp(min(150, int(self._fuel * 1.5)))
-            # Oil temp typically lags water temp; simple smoothing / offset demo
             est_oil = int(self._waterTemp * 0.9 + 10)
             self.setOilTemp(est_oil)
             if not self._got_first:
@@ -203,26 +213,61 @@ class Telemetry(QObject):
                 self.firstFrameReceived.emit()
 
     def demoTick(self, t: float):
-        # Simple sine-like sweep without importing math heavy each frame.
-        # Use triangular wave approximation.
-        period = 5.0
-        phase = (t % period) / period  # 0..1
+        # DEMO FULL STATE (simulate everything adjustable in DevPanel except nav arrows)
+        # RPM/SPEED triangle wave (fast)
+        base_period = 6.0
+        phase = (t % base_period) / base_period  # 0..1
         if phase < 0.5:
             frac = phase * 2.0
         else:
             frac = 2.0 - phase * 2.0
-        rpm = int(frac * 8000)
-        speed = frac * 220.0
-        # Blinkers toggle every ~0.5s
-        blink = int((t * 2) % 2) == 0
-        self.updateFromFrame(rpm, speed, (
-            (1 if blink else 0) | (1 if not blink else 0) << 1 | (1 << 2 if rpm > 6000 else 0)
-        ))
-        if not self._got_first:
-            self.setWaterTemp(int(frac * 150))
-            self.setOilTemp(int(frac * 160 * 0.85 + 15))
+        rpm = int(frac * 7800)  # cap near redline
+        speed = frac * 230.0
 
-    # --- Persistence helpers ---
+        # Fuel slower saw/triangle (0..100)
+        fuel_period = 22.0
+        f_phase = (t % fuel_period) / fuel_period
+        if f_phase < 0.5:
+            fuel_frac = f_phase * 2.0
+        else:
+            fuel_frac = 2.0 - f_phase * 2.0
+        fuel_val = int(fuel_frac * 100)
+
+        # Temps derived with slight lag / scaling
+        water_period = 30.0
+        w_phase = (t % water_period) / water_period
+        if w_phase < 0.5:
+            w_frac = w_phase * 2.0
+        else:
+            w_frac = 2.0 - w_phase * 2.0
+        water_temp = int(60 + w_frac * 90)  # 60..150
+        oil_temp = int(50 + w_frac * 95)    # 50..145
+
+        # Indicators / lights patterns
+        blink_left = int((t * 1.5) % 2) == 0
+        blink_right = not blink_left
+        high_beam = rpm > 6000  # same logic as before
+        fog = int((t / 4) % 2) == 0
+        park = int((t / 10) % 2) == 0
+        check_engine = int((t / 15) % 30) == 0  # brief flash every 15s
+
+        # Pack flags: bits0..4 booleans, bits5-12 fuel (8 bits)
+        flags = (
+            (1 if blink_left else 0) |
+            ((1 if blink_right else 0) << 1) |
+            ((1 if high_beam else 0) << 2) |
+            ((1 if fog else 0) << 3) |
+            ((1 if park else 0) << 4) |
+            ((fuel_val & 0xFF) << 5)
+        )
+
+        self.updateFromFrame(rpm, speed, flags)
+        # Override temps + check engine each tick (not in frame spec)
+        self.setWaterTemp(water_temp)
+        self.setOilTemp(oil_temp)
+        self.setCheckEngine(check_engine)
+
+    # PERSISTENCE
     @Slot(int, int, int, int)
     def saveSuspension(self, fr: int, fl: int, rr: int, rl: int):
         """Persist suspension values to data/data.json (merging with existing fields)."""
