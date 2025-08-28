@@ -1,11 +1,11 @@
 import QtQuick 2.15
 
-// RightCluster: vertical stack of small horizontal bar gauges (oil temp, water temp).
+// RightCluster: vertical stack of small horizontal bar gauges (oil temp, water temp)
 // Bars show only 40–140°C range; below 40 -> empty, above 140 -> full.
 Item {
     id: root
-    property int oilTemp: TEL ? TEL.oilTemp : 0  // raw oil temp
-    property int waterTemp: TEL ? TEL.waterTemp : 0 // raw water temp
+    property int oilTemp: TEL ? TEL.oilTemp : 0
+    property int waterTemp: TEL ? TEL.waterTemp : 0
 
     // Display range for bar scaling
     property int tempBarMin: 40
@@ -19,9 +19,10 @@ Item {
     property int barWidth: width * 0.55
     property int barHeight: 14
     property color trackColor: '#404040'
-    property color fillColor: 'white'
-    property color textColor: 'white'
     property int valueFontSize: 26
+
+    // Helper to compute dynamic color (blue <80, white 80-114, red >114)
+    function tempColor(t) { return t < 80 ? '#1e66ff' : (t > 114 ? '#d62828' : 'white'); }
 
     implicitWidth: 320
     implicitHeight: (rowHeight * 2) + rowSpacing
@@ -36,6 +37,7 @@ Item {
             id: oilRow
             height: rowHeight
             width: parent.width
+
             // Icon + backing
             Item {
                 id: oilIconWrap
@@ -48,7 +50,7 @@ Item {
                     width: parent.width - 8
                     height: parent.height - 12
                     radius: 6
-                    color: oilTemp < 80 ? '#1e66ff' : (oilTemp > 114 ? '#d62828' : 'white')
+                    color: root.tempColor(oilTemp)
                     Behavior on color { ColorAnimation { duration: 180 } }
                 }
                 Image {
@@ -58,6 +60,7 @@ Item {
                     smooth: true
                 }
             }
+
             // Track + fill
             Rectangle {
                 id: oilTrack
@@ -65,34 +68,37 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 width: barWidth
                 height: barHeight
-                radius: barHeight/2
+                radius: barHeight / 2
                 color: trackColor
                 Rectangle {
                     id: oilFill
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     height: parent.height
-                    // Scale only 40–140°C
                     width: (oilTemp <= tempBarMin) ? 0 : (oilTemp >= tempBarMax ? parent.width : parent.width * (oilTemp - tempBarMin) / (tempBarMax - tempBarMin))
                     radius: parent.radius
-                    color: fillColor
+                    color: root.tempColor(oilTemp)
+                    Behavior on color { ColorAnimation { duration: 180 } }
                 }
             }
             Text {
                 id: oilValue
-                text: oilTemp + '°C'
-                color: textColor
+                text: oilTemp + '\u00B0C'
+                color: root.tempColor(oilTemp)
+                Behavior on color { ColorAnimation { duration: 180 } }
                 font.pixelSize: valueFontSize
                 font.bold: true
                 anchors.verticalCenter: parent.verticalCenter
                 x: oilTrack.x + oilTrack.width + 12
             }
         }
+
         // Water temperature row
         Item {
             id: waterRow
             height: rowHeight
             width: parent.width
+
             Item {
                 id: waterIconWrap
                 width: iconSize
@@ -104,7 +110,7 @@ Item {
                     width: parent.width - 8
                     height: parent.height - 8
                     radius: 6
-                    color: waterTemp < 80 ? '#1e66ff' : (waterTemp > 114 ? '#d62828' : 'white')
+                    color: root.tempColor(waterTemp)
                     Behavior on color { ColorAnimation { duration: 180 } }
                 }
                 Image {
@@ -120,23 +126,24 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 width: barWidth
                 height: barHeight
-                radius: barHeight/2
+                radius: barHeight / 2
                 color: trackColor
                 Rectangle {
                     id: waterFill
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     height: parent.height
-                    // Scale only 40–140°C
                     width: (waterTemp <= tempBarMin) ? 0 : (waterTemp >= tempBarMax ? parent.width : parent.width * (waterTemp - tempBarMin) / (tempBarMax - tempBarMin))
                     radius: parent.radius
-                    color: fillColor
+                    color: root.tempColor(waterTemp)
+                    Behavior on color { ColorAnimation { duration: 180 } }
                 }
             }
             Text {
                 id: waterValue
-                text: waterTemp + '°C'
-                color: textColor
+                text: waterTemp + '\u00B0C'
+                color: root.tempColor(waterTemp)
+                Behavior on color { ColorAnimation { duration: 180 } }
                 font.pixelSize: valueFontSize
                 font.bold: true
                 anchors.verticalCenter: parent.verticalCenter

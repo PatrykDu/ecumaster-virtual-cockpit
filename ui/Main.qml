@@ -228,8 +228,24 @@ Window {
                 onRpmStateChanged: { neutralBg.requestPaint(); warnBg.requestPaint(); redBg.requestPaint() }
 
                 Column {
+                    id: speedStack
                     anchors.centerIn: parent
+                    // Increase logo by 50% WITHOUT moving speed digits:
+                    // Enlarging top item would push Column center down by delta/2.
+                    // We counter with a negative verticalCenterOffset.
+                    anchors.verticalCenterOffset: -speedInner.width * 0.0375 // ( (0.6*1.5 - 0.6) * 0.25 ) / 2 = 0.0375
                     spacing: 4
+                    property real logoScale: 1.5
+                    Image {
+                        id: mazdaspeedLogo
+                        source: Qt.resolvedUrl('../assets/mazdaspeed.png')
+                        fillMode: Image.PreserveAspectFit
+                        smooth: true
+                        cache: true
+                        width: speedInner.width * 0.6 * speedStack.logoScale
+                        height: width * 0.25
+                        anchors.horizontalCenter: parent.horizontalCenter
+                    }
                     Text {
                         id: speedValue
                         text: Math.round(TEL.speed)
@@ -246,6 +262,71 @@ Window {
                     }
                 }
             }
+        }
+
+        // Left turn icon (with green backing) – positioned left/top relative to main gauge
+        Item {
+            id: leftTurnIndicator
+            width: clusterCenter.width * 0.11
+            height: width
+            // Final placement: slightly below top of gauge, to its left
+            anchors.top: clusterCenter.top
+            anchors.topMargin: 58 // moved down by +30
+            anchors.right: clusterCenter.left
+            anchors.rightMargin: -130
+            z: 500
+            property bool active: TEL ? TEL.leftBlink : false
+            visible: active
+            opacity: 1
+            Rectangle { // green fill only behind arrow cutout (smaller so it doesn't stick out)
+                anchors.centerIn: parent
+                width: parent.width * 0.96
+                height: parent.height * 0.72
+                radius: width * 0.20
+                color: '#00c040'
+                opacity: 0.95
+            }
+            Image {
+                anchors.fill: parent
+                source: Qt.resolvedUrl('../assets/left_turn.png')
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+                cache: true
+                opacity: 1
+            }
+            Connections { target: TEL; function onLeftBlinkChanged(v) { leftTurnIndicator.active = v } }
+        }
+
+        // Right turn icon (mirrored placement) – to the right of main gauge (inside content)
+        Item {
+            id: rightTurnIndicator
+            width: clusterCenter.width * 0.11
+            height: width
+            anchors.top: clusterCenter.top
+            anchors.topMargin: 58
+            anchors.left: clusterCenter.right
+            anchors.leftMargin: -130 // mirror distance (positive) of left indicator
+            z: 500
+            property bool active: TEL ? TEL.rightBlink : false
+            visible: active
+            opacity: 1
+            Rectangle {
+                anchors.centerIn: parent
+                width: parent.width * 0.98
+                height: parent.height * 0.7
+                radius: width * 0.20
+                color: '#00c040'
+                opacity: 0.95
+            }
+            Image {
+                anchors.fill: parent
+                source: Qt.resolvedUrl('../assets/right_turn.png')
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+                cache: true
+                opacity: 1
+            }
+            Connections { target: TEL; function onRightBlinkChanged(v) { rightTurnIndicator.active = v } }
         }
 
         FuelGauge {

@@ -23,7 +23,7 @@ Item {
     property bool _exhaustAutoExit: false
         
         property bool _settingsAutoExit: false
-        property var settingsItems: ["Idle Timer", "Brightness", "Theme", "Diagnostics"]
+        property var settingsItems: ["idle timer", "brightness", "speedo", "logs"]
         property int settingsIndex: 0
     property int wheelEditIndex: -1
     property var windowRoot: null
@@ -40,11 +40,19 @@ Item {
     
     property bool frameHideOverride: false
 
+    // Internal flags controlling exit animation
+    property bool menuClosing: false     // true while fading out main menu
+    property bool clockRaised: false     // controls clock vertical position (replaces direct menuActive dependency)
+
     
     property real slotSpacing: base * 0.42   // vertical distance between consecutive items
     property real selectedFont: base * 0.30
     property real dimFont: base * 0.16
     property int animMs: 180
+    // Duration (ms) for menu fade in/out
+    property int menuFadeDuration: 420
+    // Shorter fade when exiting back to clock
+    property int menuFadeOutShortDuration: 260
 
     FontMetrics { id: menuFontMetrics; font.pixelSize: root.selectedFont }
     Component.onCompleted: {
@@ -56,6 +64,23 @@ Item {
     }
     onSelectedFontChanged: if (menuItems.length > 0) { selectedTextWidth = menuFontMetrics.advanceWidth(menuItems[menuIndex]); frame.targetWidth = (selectedTextWidth>0?selectedTextWidth:base)+base*0.36 }
     onMenuIndexChanged: if (menuItems.length > 0) { selectedTextWidth = menuFontMetrics.advanceWidth(menuItems[menuIndex]); frame.targetWidth = (selectedTextWidth>0?selectedTextWidth:base)+base*0.36 }
+    // Fade-in when menu first activated from clock-only view
+    onMenuActiveChanged: {
+        if (menuActive && !inSubmenu) {
+            // Opening main menu: raise clock immediately, fade items in
+            clockRaised = true;
+            menuClosing = false;
+            menuFadeIn.stop(); menuFadeOut.stop();
+            menuFade = 0;
+            menuFadeIn.from = 0; menuFadeIn.to = 1; menuFadeIn.start();
+        } else if (!menuActive && !inSubmenu) {
+            // Closing main menu: fade out first, then slide clock down
+            menuClosing = true;
+            menuFadeIn.stop(); menuFadeOut.stop();
+            if (menuFade < 1) menuFade = 1; // ensure start at visible
+            menuFadeOut.from = menuFade; menuFadeOut.to = 0; menuFadeOut.start();
+        }
+    }
 
     
     property date now: new Date()
@@ -80,8 +105,9 @@ Item {
         font.bold: true
         anchors.horizontalCenter: parent.horizontalCenter
     anchors.top: parent.top
-    anchors.topMargin: -base * 1.2 + (menuActive ? 0 : base * 1)
-    opacity: ((!inSubmenu || currentSubmenu === 'settings' || settingsTransitionActive) ? menuFade : 0)
+    anchors.topMargin: -base * 1.2 + (clockRaised ? 0 : base * 1)
+    // Clock stays visible except inside a non-settings submenu
+    opacity: (inSubmenu && !(currentSubmenu === 'settings' || settingsTransitionActive)) ? 0 : 1
     Behavior on anchors.topMargin { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
     }
 
@@ -101,7 +127,7 @@ Item {
     border.color: Qt.rgba(1,0.15,0.15,0.55)
         border.width: 2
         scale: 1
-    opacity: (!inSubmenu && menuActive && !frameHideOverride) ? menuFade : 0
+    opacity: (!inSubmenu && (menuActive || menuClosing) && !frameHideOverride) ? menuFade : 0
     Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
     }
 
@@ -111,7 +137,7 @@ Item {
         id: menuLayer
         anchors.fill: parent
     
-    opacity: (menuActive && !inSubmenu && !settingsTransitionActive) ? menuFade : 0
+    opacity: ((menuActive || menuClosing) && !inSubmenu && !settingsTransitionActive) ? menuFade : 0
     property real centerY: frame.y + frame.height/2
         Repeater {
             model: root.menuItems.length
@@ -436,6 +462,7 @@ Item {
             frameHideOverride = true;
             
             settingsOptions.x = root.width * 0.25; settingsOptions.opacity = 0; settingsOptions.scale = 1;
+            settingsContainer.settingsSelectedTextWidth = settingsMetrics.advanceWidth(settingsItems[settingsIndex]);
             
             settingsEnterAnim.stop();
             settingsEnterAnim.animX.from = settingsFly.x;
@@ -471,7 +498,6 @@ Item {
             root._settingsAutoExit = (auto === true);
             submenuInactivityTimer.stop();
             settingsTransitionActive = true; 
-            settingsHeaderVisible = false;   
             settingsContainer.hideSettingsFrame = true; 
             
             settingsOptionsExitAnim.start();
@@ -649,6 +675,12 @@ Item {
         selectionConfirm.start();
     }
 
+    onSettingsIndexChanged: {
+        if (currentSubmenu === 'settings') {
+            settingsContainer.settingsSelectedTextWidth = settingsMetrics.advanceWidth(settingsItems[settingsIndex]);
+        }
+    }
+
     function resetTrip() {
         try {
             if (typeof TEL !== 'undefined' && TEL.saveTrip) {
@@ -694,14 +726,19 @@ Item {
 
     // FADE ANIMATIONS
     // FADE ANIMATIONS
-    NumberAnimation { id: menuFadeOut; target: root; property: 'menuFade'; duration: 250; easing.type: Easing.OutCubic; onStopped: {
+    NumberAnimation { id: menuFadeOut; target: root; property: 'menuFade'; duration: menuClosing ? menuFadeOutShortDuration : menuFadeDuration; easing.type: Easing.OutCubic; onStopped: {
             if (_pendingSubmenuEntry) {
                 _pendingSubmenuEntry = false;
                 root.inSubmenu = true;
                 submenuFadeIn.from = 0; submenuFadeIn.to = 1; submenuFadeIn.start();
             }
+            if (menuClosing) {
+                // Now drop clock after fade finished
+                clockRaised = false;
+                menuClosing = false;
+            }
         } }
-    NumberAnimation { id: menuFadeIn; target: root; property: 'menuFade'; duration: 250; easing.type: Easing.OutCubic; onStarted: { if (menuFade === 0) menuFade = 0 } }
+    NumberAnimation { id: menuFadeIn; target: root; property: 'menuFade'; duration: menuFadeDuration; easing.type: Easing.InOutCubic; onStarted: { if (menuFade === 0) menuFade = 0 } }
     NumberAnimation { id: submenuFadeIn; target: root; property: 'submenuFade'; duration: 250; easing.type: Easing.OutCubic }
     NumberAnimation { id: submenuFadeOut; target: root; property: 'submenuFade'; duration: 250; easing.type: Easing.OutCubic; onStopped: {
             if (_pendingSubmenuExit !== '') {
@@ -740,6 +777,7 @@ Item {
             // Upward shift to align header with main menu vertical position
             property real verticalShift: -base * 0.155
             property bool hideSettingsFrame: false
+            property real settingsSelectedTextWidth: 0
             Rectangle {
                 id: settingsFrame
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -748,13 +786,14 @@ Item {
                 y: settingsContainer.centerY + settingsContainer.verticalShift + 20 - height/2
                 radius: 6
                 height: settingsContainer.settingsFontSelected * 1.25
-                width: frame.width // reuse main menu frame width (static sizing)
+                width: settingsContainer.settingsSelectedTextWidth > 0 ? settingsContainer.settingsSelectedTextWidth + base * 0.36 : frame.width
                 color: frame.baseColor
                 border.color: frame.border.color
                 border.width: 2
                 opacity: settingsContainer.opacity * (settingsContainer.hideSettingsFrame ? 0 : 1)
                 scale: 1
                 Behavior on y { NumberAnimation { duration: animMs; easing.type: Easing.OutCubic } }
+                Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
                 
                 SequentialAnimation {
                     id: settingsConfirm
@@ -872,6 +911,8 @@ Item {
             settingsOptions.scale = 1;
         }
         onFinished: {
+            // Only now hide the header so it stays visible during the options' exit animation
+            settingsHeaderVisible = false;
             
             var headerPos = settingsHeader.mapToItem(root, settingsHeader.width/2, settingsHeader.height/2);
             settingsFly.text = 'settings';

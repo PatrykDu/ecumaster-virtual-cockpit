@@ -41,12 +41,17 @@ Item {
     // Fill configuration (constant width parallelogram, solid color) – extends LEFT from right edge polyline
     property int fillWidth: 155
     property bool clampInside: false
-    // Temperature color thresholds
+    // Temperature color thresholds (will be used as gradient anchors, not abrupt states)
     property int lowTempThreshold: 80      // below => blue
     property int highTempThreshold: 114    // above => red
     property color lowTempColor: '#0078ff'
     property color neutralTempColor: '#F0F0E8'
     property color highTempColor: '#ff2a00'
+    // New gradient range definitions
+    property int coldGradientStart: 70   // <= -> fully blue
+    property int coldGradientEnd: 80     // >= -> fully neutral
+    property int hotGradientStart: 110   // <= -> still neutral
+    property int hotGradientEnd: 120     // >= -> fully red
     // Extension ONLY for fill (not for guide). Here we extend rightwards (since guide sits exactly on right edge);
     // then subtract this when building fill left points.
     property int rightPad: 1
@@ -137,10 +142,8 @@ Item {
             for (var r2 = 1; r2 < rightPts.length; ++r2) ctx.lineTo(rightPts[r2].x, rightPts[r2].y)
             for (var lp = leftPts.length -1; lp >=0; --lp) ctx.lineTo(leftPts[lp].x, leftPts[lp].y)
             ctx.closePath()
-            // Dynamic temperature color selection
-            var tempColor = (root.tempC < root.lowTempThreshold) ? root.lowTempColor :
-                            (root.tempC > root.highTempThreshold ? root.highTempColor : root.neutralTempColor)
-            ctx.fillStyle = tempColor
+            // Smooth gradient temperature color selection
+            ctx.fillStyle = root.tempFillColor(root.tempC)
             ctx.globalAlpha = 0.90
             ctx.fill()
         }
@@ -152,6 +155,47 @@ Item {
     onLevelChanged: fillCanvas.requestPaint()
     onTempCChanged: fillCanvas.requestPaint()
     Component.onCompleted: computeFullRightEdge()
+
+    // Color blending helpers
+    function blendChannel(a,b,t){ return Math.round(a + (b-a)*t) }
+    function hexToRgb(col) {
+        var h = String(col)
+        if (h[0] !== '#') {
+            var map = { red:'#ff0000', yellow:'#ffff00', blue:'#0000ff', white:'#ffffff', black:'#000000' }
+            h = map[h.toLowerCase()] || '#ffffff'
+        }
+        h = h.slice(1)
+        if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2]
+        return { r: parseInt(h.substr(0,2),16), g: parseInt(h.substr(2,2),16), b: parseInt(h.substr(4,2),16) }
+    }
+    function rgbToHex(r,g,b){
+        function c(v){ var s=v.toString(16); return s.length===1 ? '0'+s : s }
+        return '#'+c(r)+c(g)+c(b)
+    }
+    // Gradient: blue (<=70) -> blend 70-80 -> neutral 80-110 -> blend 110-120 -> red >=120
+    function tempFillColor(tC) {
+        var coldStart = coldGradientStart
+        var coldEnd = coldGradientEnd
+        var hotStart = hotGradientStart
+        var hotEnd = hotGradientEnd
+        if (tC <= coldStart) return lowTempColor
+        if (tC < coldEnd) {
+            var t1 = (tC - coldStart)/(coldEnd - coldStart) // 0..1
+            // ease-in a bit
+            t1 = t1*t1
+            var cB = hexToRgb(lowTempColor); var cN = hexToRgb(neutralTempColor)
+            return rgbToHex(blendChannel(cB.r,cN.r,t1), blendChannel(cB.g,cN.g,t1), blendChannel(cB.b,cN.b,t1))
+        }
+        if (tC <= hotStart) return neutralTempColor
+        if (tC < hotEnd) {
+            var t2 = (tC - hotStart)/(hotEnd - hotStart)
+            // ease-out
+            t2 = 1 - (1-t2)*(1-t2)
+            var cN2 = hexToRgb(neutralTempColor); var cR = hexToRgb(highTempColor)
+            return rgbToHex(blendChannel(cN2.r,cR.r,t2), blendChannel(cN2.g,cR.g,t2), blendChannel(cN2.b,cR.b,t2))
+        }
+        return highTempColor
+    }
 
     // Bars + labels drawn ABOVE fill but BELOW guide line (mirrored)
     Repeater {
@@ -196,9 +240,9 @@ Item {
                     // Reduce height (trim top/bottom) so it does not stick out
                     height: parent.height - 12
                     // Icon background: keep blue when cold, red when hot, pure white in neutral band
-                    color: (root.tempC < root.lowTempThreshold) ? root.lowTempColor : (root.tempC > root.highTempThreshold ? root.highTempColor : 'white')
+                    color: root.tempFillColor(root.tempC)
                     radius: 4
-                    Behavior on color { ColorAnimation { duration: 180 } }
+                    Behavior on color { ColorAnimation { duration: 300; easing.type: Easing.InOutQuad } }
                 }
                 Image {
                     anchors.fill: parent

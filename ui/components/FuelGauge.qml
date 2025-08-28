@@ -36,10 +36,17 @@ Item {
     property int fillWidth: 155   // width measured from original (un-padded) left edge
     // When true, the fill right edge is clamped per bar so it never sticks out past any shorter bar (except the longest where it fits already).
     property bool clampInside: false // constant width; ignore shorter bars
-    // Dynamic color: turns red when below threshold
+    // Dynamic color: previously abrupt switch to red below threshold; now smooth gradient
     property int lowFuelThreshold: 20
     property color fillColor: '#ffd000'
     property color lowFuelColor: '#ff2a00'
+    // New explicit zones: 0-14 full red, 15-30 gradient red->yellow, >=31 full yellow
+    property int redZoneMax: 14
+    property int gradientStart: 15
+    property int gradientEnd: 30
+    // Icon-only extra gradient: 31-49 yellow->white, >=50 white
+    property int iconSecondGradientStart: 31
+    property int iconSecondGradientEnd: 49
     // Extension only for the FILL (not for the guide). We keep the guide exactly at bar left edges
     // so the top F bar visually touches the guide and the bottom segment is not clipped.
     // Reduced from 6 -> 3 to keep yellow fill from poking outside the guide line.
@@ -129,7 +136,7 @@ Item {
             for (var lp2 = 1; lp2 < leftPts.length; ++lp2) ctx.lineTo(leftPts[lp2].x, leftPts[lp2].y)
             for (var rp = rightPts.length -1; rp >=0; --rp) ctx.lineTo(rightPts[rp].x, rightPts[rp].y)
             ctx.closePath()
-            ctx.fillStyle = (root.level < lowFuelThreshold ? lowFuelColor : fillColor)
+            ctx.fillStyle = root.fuelFillColor(root.level)
             ctx.globalAlpha = 0.90
             ctx.fill()
         }
@@ -139,6 +146,56 @@ Item {
     onHeightChanged: { computeFullLeftEdge() }
     onLevelChanged: fillCanvas.requestPaint() // repaint when fuel changes
     Component.onCompleted: computeFullLeftEdge()
+
+    // Smooth gradient color helper (linear blend)
+    function blendChannel(a,b,t){ return Math.round(a + (b-a)*t) }
+    function hexToRgb(col) {
+        // Ensure we operate on a string (QML color literals may not be plain strings)
+        var h = String(col)
+        // Convert named colors if ever used (fallback to yellowish neutral)
+        if (h[0] !== '#') {
+            // Minimal named color support; extend if needed
+            var map = { red:'#ff0000', yellow:'#ffff00', blue:'#0000ff', white:'#ffffff', black:'#000000' }
+            h = map[h.toLowerCase()] || '#ffd000'
+        }
+        h = h.slice(1)
+        if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2]
+        return { r: parseInt(h.substr(0,2),16), g: parseInt(h.substr(2,2),16), b: parseInt(h.substr(4,2),16) }
+    }
+    function rgbToHex(r,g,b){
+        function c(v){ var s=v.toString(16); return s.length===1 ? '0'+s : s }
+        return '#'+c(r)+c(g)+c(b)
+    }
+    // Returns a color based on new zones: red (0-14), gradient (15-30), yellow (>=31)
+    function fuelFillColor(lvl) {
+        if (lvl <= redZoneMax) return lowFuelColor
+        if (lvl >= gradientEnd + 1) return fillColor // >=31
+        // Gradient segment
+        var gs = gradientStart
+        var ge = gradientEnd
+        var t = (lvl - gs) / (ge - gs) // 0 at 15, 1 at 30
+        // Ease-in-out slight smoothing
+        t = t < 0 ? 0 : (t > 1 ? 1 : (t*t*(3 - 2*t)))
+        var cR = hexToRgb(lowFuelColor)
+        var cY = hexToRgb(fillColor)
+        return rgbToHex(blendChannel(cR.r,cY.r,t), blendChannel(cR.g,cY.g,t), blendChannel(cR.b,cY.b,t))
+    }
+
+    // Icon-specific color (adds second gradient yellow->white 31-49, white 50+)
+    function fuelIconColor(lvl) {
+        if (lvl <= redZoneMax) return lowFuelColor
+        if (lvl <= gradientEnd) return fuelFillColor(lvl)
+        var s2 = iconSecondGradientStart
+        var e2 = iconSecondGradientEnd
+        if (lvl < s2) return fillColor
+        if (lvl >= e2 + 1) return '#ffffff'
+        var t = (lvl - s2)/(e2 - s2) // 0 at start, 1 at end
+        // gentle ease
+        t = t*t*(3 - 2*t)
+        var cY = hexToRgb(fillColor)
+        var cW = hexToRgb('#ffffff')
+        return rgbToHex(blendChannel(cY.r,cW.r,t), blendChannel(cY.g,cW.g,t), blendChannel(cY.b,cW.b,t))
+    }
 
     // Bars + labels drawn ABOVE fill but BELOW guide line
     Repeater {
@@ -182,10 +239,10 @@ Item {
                     anchors.centerIn: parent
                     width: Math.max(4, parent.width - 2*fuelIconBackingSideTrim)
                     height: parent.height
-                    color: root.level < lowFuelThreshold ? lowFuelColor : 'white'
+                        color: root.fuelIconColor(root.level)
                     radius: 4
                     visible: true
-                    Behavior on color { ColorAnimation { duration: 180 } }
+                    Behavior on color { ColorAnimation { duration: 300; easing.type: Easing.InOutQuad } }
                 }
                 Image {
                     anchors.fill: parent
