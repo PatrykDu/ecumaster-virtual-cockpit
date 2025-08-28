@@ -16,6 +16,11 @@ Window {
     property bool firstData: false
     property int odometerValue: 0
     property real tripValue: 0.0   // changed to real (float)
+    // Suspension stiffness (loaded from data.json)
+    property real fr: 0
+    property real fl: 0
+    property real rr: 0
+    property real rl: 0
 
     signal requestStart()
 
@@ -262,6 +267,11 @@ Window {
             anchors.verticalCenterOffset: -30
             anchors.right: clusterCenter.left
             anchors.rightMargin: 20
+            fl: root.fl
+            fr: root.fr
+            rr: root.rr
+            rl: root.rl
+            windowRoot: root
         }
         WaterTempGauge {
             id: waterTempGauge
@@ -333,19 +343,31 @@ Window {
 
     function loadOdometer() {
         var xhr = new XMLHttpRequest();
-    xhr.open('GET', Qt.resolvedUrl('../data/data.json'))
+        xhr.open('GET', Qt.resolvedUrl('../data/data.json'))
         xhr.onreadystatechange = function() {
             if (xhr.readyState === XMLHttpRequest.DONE) {
                 try {
                     var obj = JSON.parse(xhr.responseText);
                     if (obj) {
-                        if (obj.odometer !== undefined) root.odometerValue = obj.odometer
-                        if (obj.trip !== undefined) root.tripValue = parseFloat(obj.trip)
+                        if (obj.odometer !== undefined) root.odometerValue = obj.odometer;
+                        if (obj.trip !== undefined) root.tripValue = parseFloat(obj.trip);
+                        if (obj.FR !== undefined) root.fr = obj.FR;
+                        if (obj.FL !== undefined) root.fl = obj.FL;
+                        if (obj.RR !== undefined) root.rr = obj.RR;
+                        if (obj.RL !== undefined) root.rl = obj.RL;
+                        if (obj.fr !== undefined) root.fr = obj.fr;
+                        if (obj.fl !== undefined) root.fl = obj.fl;
+                        if (obj.rr !== undefined) root.rr = obj.rr;
+                        if (obj.rl !== undefined) root.rl = obj.rl;
+                        // Clamp to 1..32
+                        function clamp(v) { return Math.max(1, Math.min(32, v)); }
+                        root.fr = clamp(root.fr); root.fl = clamp(root.fl); root.rr = clamp(root.rr); root.rl = clamp(root.rl);
+                        console.log('[data.json] loaded FR='+root.fr+' FL='+root.fl+' RR='+root.rr+' RL='+root.rl)
                     }
                 } catch(e) {}
             }
         }
-        xhr.send()
+        xhr.send();
     }
 
     Timer { id: odometerPoll; interval: 5000; repeat: true; running: false; onTriggered: loadOdometer() }

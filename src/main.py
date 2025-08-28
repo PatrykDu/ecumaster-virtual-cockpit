@@ -1,6 +1,7 @@
 from __future__ import annotations
 import os
 import sys
+import json
 
 # --- Ensure project root is on sys.path so that config.py (located one level up) is importable ---
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
@@ -52,6 +53,27 @@ def main():
         return 1
 
     win = engine.rootObjects()[0]
+    # Fallback: load data.json here and push values into QML root (in case XHR fails)
+    data_path = os.path.join(PROJECT_ROOT, 'data', 'data.json')
+    if os.path.isfile(data_path):
+        try:
+            with open(data_path, 'r', encoding='utf-8') as f:
+                data_obj = json.load(f)
+            # Only set if properties exist on root (ignore otherwise)
+            # Map multiple possible key casings
+            key_map = [
+                ('FR','fr'), ('FL','fl'), ('RR','rr'), ('RL','rl'),
+                ('fr','fr'), ('fl','fl'), ('rr','rr'), ('rl','rl'),
+                ('odometer','odometerValue'), ('trip','tripValue')
+            ]
+            for key_json, key_qml in key_map:
+                if key_json in data_obj:
+                    try:
+                        win.setProperty(key_qml, data_obj[key_json])
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"[data.json] Python load error: {e}")
     # Set desired size
     try:
         win.setWidth(config.WIDTH)

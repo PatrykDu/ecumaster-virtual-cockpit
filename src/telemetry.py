@@ -1,5 +1,6 @@
 from __future__ import annotations
 from PySide6.QtCore import QObject, Signal, Property, QMutex, QMutexLocker, Slot
+import os, json
 
 # Telemetry object exposed to QML.
 # Provides thread-safe property updates via signals.
@@ -220,3 +221,26 @@ class Telemetry(QObject):
         if not self._got_first:
             self.setWaterTemp(int(frac * 150))
             self.setOilTemp(int(frac * 160 * 0.85 + 15))
+
+    # --- Persistence helpers ---
+    @Slot(int, int, int, int)
+    def saveSuspension(self, fr: int, fl: int, rr: int, rl: int):
+        """Persist suspension values to data/data.json (merging with existing fields)."""
+        try:
+            data_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'data.json'))
+            obj = {}
+            if os.path.isfile(data_path):
+                try:
+                    with open(data_path, 'r', encoding='utf-8') as f:
+                        obj = json.load(f) or {}
+                except Exception:
+                    obj = {}
+            obj['fr'] = fr
+            obj['fl'] = fl
+            obj['rr'] = rr
+            obj['rl'] = rl
+            # keep odometer/trip if present unchanged
+            with open(data_path, 'w', encoding='utf-8') as f:
+                json.dump(obj, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"[saveSuspension] error: {e}")

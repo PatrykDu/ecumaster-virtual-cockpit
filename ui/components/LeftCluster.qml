@@ -7,6 +7,11 @@ Item {
     readonly property real ratioW: 2
     readonly property real ratioH: 3
     property real heightOverride: -1
+    // Incoming suspension stiffness values (injected from parent)
+    property real fl: 0
+    property real fr: 0
+    property real rr: 0
+    property real rl: 0
     width: base * ratioW
     height: heightOverride > 0 ? heightOverride : base * ratioH
 
@@ -23,6 +28,13 @@ Item {
     property int submenuInactivityMs: 5000
     // Track automatic exit to decide whether to hide menu afterwards
     property bool _suspensionAutoExit: false
+    // Wheel highlight index for suspension edit mode (-1 none, 0 FL, 1 FR, 2 RL, 3 RR)
+    property int wheelEditIndex: -1
+    // Link back to root window for two-way updates
+    property var windowRoot: null
+    // Editable range
+    property int wheelMin: 1
+    property int wheelMax: 32
 
     // Animation metrics
     property real slotSpacing: base * 0.42   // vertical distance between consecutive items
@@ -165,6 +177,20 @@ Item {
         }
     }
 
+    Image {
+        id: teinLogo
+        source: Qt.resolvedUrl('../../assets/tein.png')
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+    anchors.bottomMargin: 180
+        width: parent.width * 0.65
+        fillMode: Image.PreserveAspectFit
+        smooth: true
+    // Pełna widoczność tylko w submenu suspension
+    opacity: (inSubmenu && currentSubmenu === 'suspension') ? 1.0 : 0.0
+        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+    }
+
     // Submenu content layer (e.g., suspension)
     Item {
         id: submenuLayer
@@ -174,16 +200,16 @@ Item {
         Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
         // Compact container for suspension diagram + values
-        readonly property real valFL: (root.FL !== undefined ? root.FL : 0)
-        readonly property real valFR: (root.FR !== undefined ? root.FR : 0)
-        readonly property real valRL: (root.RL !== undefined ? root.RL : 0)
-        readonly property real valRR: (root.RR !== undefined ? root.RR : 0)
+    readonly property real valFL: fl
+    readonly property real valFR: fr
+    readonly property real valRL: rl
+    readonly property real valRR: rr
 
         Item {
             id: suspensionContainer
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
-            anchors.verticalCenterOffset: -base * 0.6
+            anchors.verticalCenterOffset: -base * 0.3
             width: parent.width * 0.7
             height: width // square area
             opacity: root.currentSubmenu === 'suspension' ? root.suspensionProgress : 0
@@ -200,24 +226,24 @@ Item {
             // Wheel values in corners
             property real wheelFont: base * 0.32
             Text { // FL
-                text: submenuLayer.valFL; color: 'white'; font.pixelSize: suspensionContainer.wheelFont; font.bold: true
+                text: submenuLayer.valFL; color: (root.wheelEditIndex===0 ? '#ff2020' : 'white'); font.pixelSize: suspensionContainer.wheelFont; font.bold: true
                 anchors.left: parent.left; anchors.top: parent.top
-                anchors.leftMargin: base * -0.10; anchors.topMargin: base * 0.10
+                anchors.leftMargin: base * -0.25; anchors.topMargin: base * 0.10
             }
             Text { // FR
-                text: submenuLayer.valFR; color: 'white'; font.pixelSize: suspensionContainer.wheelFont; font.bold: true
+                text: submenuLayer.valFR; color: (root.wheelEditIndex===1 ? '#ff2020' : 'white'); font.pixelSize: suspensionContainer.wheelFont; font.bold: true
                 anchors.right: parent.right; anchors.top: parent.top
-                anchors.rightMargin: base * -0.10; anchors.topMargin: base * 0.10
+                anchors.rightMargin: base * -0.25; anchors.topMargin: base * 0.10
             }
             Text { // RL
-                text: submenuLayer.valRL; color: 'white'; font.pixelSize: suspensionContainer.wheelFont; font.bold: true
+                text: submenuLayer.valRL; color: (root.wheelEditIndex===2 ? '#ff2020' : 'white'); font.pixelSize: suspensionContainer.wheelFont; font.bold: true
                 anchors.left: parent.left; anchors.bottom: parent.bottom
-                anchors.leftMargin: base * -0.10; anchors.bottomMargin: base * 0.05
+                anchors.leftMargin: base * -0.25; anchors.bottomMargin: base * 0.05
             }
             Text { // RR
-                text: submenuLayer.valRR; color: 'white'; font.pixelSize: suspensionContainer.wheelFont; font.bold: true
+                text: submenuLayer.valRR; color: (root.wheelEditIndex===3 ? '#ff2020' : 'white'); font.pixelSize: suspensionContainer.wheelFont; font.bold: true
                 anchors.right: parent.right; anchors.bottom: parent.bottom
-                anchors.rightMargin: base * -0.10; anchors.bottomMargin: base * 0.05
+                anchors.rightMargin: base * -0.25; anchors.bottomMargin: base * 0.05
             }
         }
     }
@@ -264,6 +290,12 @@ Item {
         inactivityTimer.stop();
         suspensionHide.stop();
         root.suspensionProgress = 0;
+    // Clamp incoming values to range 1..32 so UI never shows 0
+    if (fl < wheelMin) { fl = wheelMin; if (windowRoot) windowRoot.fl = fl }
+    if (fr < wheelMin) { fr = wheelMin; if (windowRoot) windowRoot.fr = fr }
+    if (rl < wheelMin) { rl = wheelMin; if (windowRoot) windowRoot.rl = rl }
+    if (rr < wheelMin) { rr = wheelMin; if (windowRoot) windowRoot.rr = rr }
+    console.log('[suspension] enter FR='+root.fr+' FL='+root.fl+' RR='+root.rr+' RL='+root.rl)
         suspensionShow.from = 0; suspensionShow.to = 1; suspensionShow.start();
     submenuInactivityTimer.restart();
     }
@@ -272,13 +304,42 @@ Item {
         suspensionShow.stop();
         suspensionHide.from = root.suspensionProgress; suspensionHide.to = 0; suspensionHide.start();
         submenuInactivityTimer.stop();
+        wheelEditIndex = -1;
+    }
+    function cycleWheelSelection() {
+        if (wheelEditIndex === -1) wheelEditIndex = 0; else wheelEditIndex = (wheelEditIndex + 1) % 4;
+        submenuInactivityTimer.restart(); // treat as user activity
+    }
+    function adjustWheel(delta) {
+        if (wheelEditIndex < 0) return;
+        var propNames = ['fl','fr','rl','rr'];
+        var p = propNames[wheelEditIndex];
+        var cur = root[p];
+        var nv = cur + delta;
+        if (nv < wheelMin) nv = wheelMin; if (nv > wheelMax) nv = wheelMax;
+        if (nv === cur) { submenuInactivityTimer.restart(); return; }
+        root[p] = nv; // update local
+        if (windowRoot) windowRoot[p] = nv; // update parent
+        submenuInactivityTimer.restart();
+        // Persist via Telemetry slot
+        if (typeof TEL !== 'undefined' && TEL.saveSuspension) {
+            TEL.saveSuspension(windowRoot ? windowRoot.fr : root.fr,
+                               windowRoot ? windowRoot.fl : root.fl,
+                               windowRoot ? windowRoot.rr : root.rr,
+                               windowRoot ? windowRoot.rl : root.rl);
+        }
     }
 
     // Listen to navigation signals from TEL
     Connections {
         target: TEL
         function onNavUpEvent() {
-            if (root.inSubmenu) return; // ignore inside submenu
+            if (root.inSubmenu) {
+                if (root.currentSubmenu === 'suspension' && root.wheelEditIndex >= 0) {
+                    adjustWheel(+1);
+                }
+                return;
+            }
             if (!root.menuActive) {
                 root.menuActive = true;
                 inactivityTimer.restart();
@@ -288,7 +349,12 @@ Item {
             inactivityTimer.restart();
         }
         function onNavDownEvent() {
-            if (root.inSubmenu) return;
+            if (root.inSubmenu) {
+                if (root.currentSubmenu === 'suspension' && root.wheelEditIndex >= 0) {
+                    adjustWheel(-1);
+                }
+                return;
+            }
             if (!root.menuActive) {
                 root.menuActive = true;
                 inactivityTimer.restart();
@@ -316,7 +382,12 @@ Item {
             }
         }
         function onNavRightEvent() {
-            if (root.inSubmenu) return; // reserved for future deeper actions
+            if (root.inSubmenu) {
+                if (root.currentSubmenu === 'suspension') {
+                    cycleWheelSelection();
+                }
+                return;
+            }
             if (!root.menuActive) { // if menu hidden, right could also reveal (optional)
                 root.menuActive = true;
                 inactivityTimer.restart();
