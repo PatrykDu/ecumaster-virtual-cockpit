@@ -22,15 +22,24 @@ Item {
     property int submenuInactivityMs: 5000
     property bool _suspensionAutoExit: false
     property bool _exhaustAutoExit: false
+        // Settings submenu state
+        property bool _settingsAutoExit: false
+        property var settingsItems: ["Idle Timer", "Brightness", "Theme", "Diagnostics"]
+        property int settingsIndex: 0
     property int wheelEditIndex: -1
     property var windowRoot: null
     property int wheelMin: 1
     property int wheelMax: 32
     property real selectedTextWidth: 0
     property bool exhaustState: false
+    // Settings transition state
+    property bool settingsHeaderVisible: false
+    property bool settingsTransitionActive: false
     // Fade values
     property real menuFade: 1    // 1 visible, 0 hidden
     property real submenuFade: 0 // 0 hidden, 1 visible
+    // Highlight frame visibility override (used during settings transition/submenu)
+    property bool frameHideOverride: false
 
     // Animation metrics
     property real slotSpacing: base * 0.42   // vertical distance between consecutive items
@@ -57,7 +66,10 @@ Item {
         interval: root.inactivityMs
         running: root.menuActive
         repeat: false
-        onTriggered: root.menuActive = false
+        onTriggered: {
+            // Don't collapse menu visuals while a submenu is active
+            if (!root.inSubmenu) root.menuActive = false;
+        }
     }
 
     Text {
@@ -67,9 +79,9 @@ Item {
         font.pixelSize: base * 0.6
         font.bold: true
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        anchors.topMargin: -base * 1.2 + (menuActive ? 0 : base * 1)
-    opacity: (!inSubmenu) ? menuFade : 0
+    anchors.top: parent.top
+    anchors.topMargin: -base * 1.2 + (menuActive ? 0 : base * 1)
+    opacity: ((!inSubmenu || currentSubmenu === 'settings' || settingsTransitionActive) ? menuFade : 0)
     Behavior on anchors.topMargin { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
     }
 
@@ -77,7 +89,7 @@ Item {
     Rectangle {
         id: frame
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.verticalCenter: parent.verticalCenter
+    anchors.verticalCenter: parent.verticalCenter
     property real targetWidth: (root.selectedTextWidth > 0 ? root.selectedTextWidth : base) + base * 0.36
     property color baseColor: Qt.rgba(1,0.08,0.08,0.28)
     property color flashColor: Qt.rgba(1,0,0,0.60)
@@ -89,7 +101,7 @@ Item {
     border.color: Qt.rgba(1,0.15,0.15,0.55)
         border.width: 2
         scale: 1
-    opacity: (!inSubmenu && menuActive) ? menuFade : 0
+    opacity: (!inSubmenu && menuActive && !frameHideOverride) ? menuFade : 0
     Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
     }
 
@@ -97,7 +109,8 @@ Item {
     Item {
         id: menuLayer
         anchors.fill: parent
-    opacity: menuActive && !inSubmenu ? menuFade : 0
+    // Hide menu options instantly during settings transition (settingsTransitionActive)
+    opacity: (menuActive && !inSubmenu && !settingsTransitionActive) ? menuFade : 0
     property real centerY: frame.y + frame.height/2
         Repeater {
             model: root.menuItems.length
@@ -140,6 +153,8 @@ Item {
         width: parent.width * 0.65
         fillMode: Image.PreserveAspectFit
         smooth: true
+    // Font metrics for settings dynamic width
+    FontMetrics { id: settingsMetrics; font.pixelSize: settingsContainer.settingsFontSelected }
     opacity: (inSubmenu && currentSubmenu === 'suspension') ? submenuFade : 0
     }
 
@@ -350,6 +365,8 @@ Item {
                 exitSuspension(true);
             } else if (root.currentSubmenu === 'exhaust') {
                 exitExhaust(true);
+                } else if (root.currentSubmenu === 'settings') {
+                    exitSettings(true);
             }
         }
     }
@@ -386,6 +403,50 @@ Item {
         _exhaustAutoExit = false;
         _enterSubmenuCommon('exhaust');
     }
+        function enterSettings() {
+            // Animated enter for settings (custom slide + shrink)
+            _settingsAutoExit = false;
+            settingsIndex = 0;
+            settingsHeaderVisible = false;
+            settingsTransitionActive = true;
+            root.currentSubmenu = 'settings';
+            settingsContainer.hideSettingsFrame = false;
+            // Keep main menu considered active visually and stop inactivity timer (prevents clock jump)
+            root.menuActive = true;
+            inactivityTimer.stop();
+            // Ensure container visible (but submenu flag stays false until end to preserve clock logic)
+            submenuFade = 1;
+            menuFade = 1;
+            // Prepare flying label
+            var startPos = frame.mapToItem(root, frame.width/2, frame.height/2);
+            settingsFly.text = 'settings';
+            settingsFly.font.pixelSize = root.selectedFont;
+            settingsFly.x = startPos.x - settingsFly.width/2;
+            settingsFly.y = startPos.y - settingsFly.height/2;
+            settingsFly.scale = 1;
+            settingsFly.opacity = 1;
+            settingsFly.visible = true;
+            // Target values (compute after layout pass)
+            var scaleTarget = (base * 0.20) / root.selectedFont; // header font / selected font
+            // Hide original menu frame during transition via override (don't break binding)
+            frameHideOverride = true;
+            // Slide options container from right (initial offset)
+            settingsOptions.x = root.width * 0.25; settingsOptions.opacity = 0;
+            // Prepare animation 'from' values now
+            settingsEnterAnim.stop();
+            settingsEnterAnim.animX.from = settingsFly.x;
+            settingsEnterAnim.animY.from = settingsFly.y;
+            settingsEnterAnim.animScale.from = 1;
+            settingsEnterAnim.animScale.to = scaleTarget;
+            // Defer target position calculation to ensure anchors have been resolved
+            Qt.callLater(function() {
+                var targetPos = settingsHeader.mapToItem(root, settingsHeader.width/2, settingsHeader.height/2);
+                settingsEnterAnim.animX.to = targetPos.x - settingsFly.width/2;
+                settingsEnterAnim.animY.to = targetPos.y - settingsFly.height/2;
+                settingsEnterAnim.start();
+            });
+            submenuInactivityTimer.restart();
+        }
     // Queue submenu entry
     property string _queuedSubmenuName: ''
     function scheduleSubmenuEnter(name) {
@@ -400,6 +461,17 @@ Item {
         _pendingSubmenuExit = 'exhaust';
         submenuFadeOut.from = submenuFade; submenuFadeOut.to = 0; submenuFadeOut.start();
     }
+        function exitSettings(auto) {
+            if (settingsExitAnim.running || settingsOptionsAnim.running || settingsEnterAnim.running)
+                return; // avoid conflicts
+            root._settingsAutoExit = (auto === true);
+            submenuInactivityTimer.stop();
+            settingsTransitionActive = true; // keep menu hidden
+            settingsHeaderVisible = false;   // fade out header label
+            settingsContainer.hideSettingsFrame = true; // hide highlight immediately
+            // Start options slide-out + fade
+            settingsOptionsExitAnim.start();
+        }
     function refreshExhaustState() {
         try {
             var xhr = new XMLHttpRequest();
@@ -432,7 +504,6 @@ Item {
                         obj.exhaust = exhaustState;
                         try {
                             var xhr2 = new XMLHttpRequest();
-                            xhr2.open('PUT', Qt.resolvedUrl('../../data/data.json')); // may not be allowed; best effort
                             xhr2.send(JSON.stringify(obj));
                         } catch(e2) {}
                     }
@@ -481,8 +552,12 @@ Item {
             if (root.inSubmenu) {
                 if (root.currentSubmenu === 'suspension' && root.wheelEditIndex >= 0) {
                     adjustWheel(+1);
+                        return;
+                    } else if (root.currentSubmenu === 'settings') {
+                        settingsIndex = (settingsIndex - 1 + settingsItems.length) % settingsItems.length;
+                        submenuInactivityTimer.restart();
+                        return;
                 }
-                return;
             }
             if (!root.menuActive) {
                 root.menuActive = true;
@@ -496,8 +571,12 @@ Item {
             if (root.inSubmenu) {
                 if (root.currentSubmenu === 'suspension' && root.wheelEditIndex >= 0) {
                     adjustWheel(-1);
+                        return;
+                    } else if (root.currentSubmenu === 'settings') {
+                        settingsIndex = (settingsIndex + 1) % settingsItems.length;
+                        submenuInactivityTimer.restart();
+                        return;
                 }
-                return;
             }
             if (!root.menuActive) {
                 root.menuActive = true;
@@ -513,6 +592,8 @@ Item {
                     exitSuspension(false);
                 } else if (root.currentSubmenu === 'exhaust') {
                     exitExhaust(false);
+                    } else if (root.currentSubmenu === 'settings') {
+                        exitSettings(false);
                 }
                 return;
             }
@@ -527,6 +608,11 @@ Item {
                     cycleWheelSelection();
                 } else if (root.currentSubmenu === 'exhaust') {
                     toggleExhaust();
+                    } else if (root.currentSubmenu === 'settings') {
+                    // Same confirm flash style as main menu
+                    if (!settingsConfirm.running) settingsConfirm.start();
+                    console.log('[settings] select placeholder ->', settingsItems[settingsIndex]);
+                    submenuInactivityTimer.restart();
                 }
                 return;
             }
@@ -546,6 +632,9 @@ Item {
             } else if (sel === 'reset trip') {
                 scheduleTripReset();
                 return;
+                } else if (sel === 'settings') {
+                    scheduleSubmenuEnter('settings');
+                    return;
             }
         }
     }
@@ -578,14 +667,17 @@ Item {
                 enterExhaust();
             } else if (_queuedSubmenuName === 'reset-trip') {
                 resetTrip();
+                } else if (_queuedSubmenuName === 'settings') {
+                    enterSettings();
             }
             _queuedSubmenuName = '';
         }
     ParallelAnimation {
+            // Avoid binding loop: capture starting colors explicitly
             PropertyAnimation { target: frame; property: 'scale'; from: 1; to: 1.08; duration: 105; easing.type: Easing.OutCubic }
             PropertyAnimation { target: frame; property: 'border.width'; from: 2; to: 5; duration: 105; easing.type: Easing.OutCubic }
             ColorAnimation { target: frame; property: 'color'; from: frame.baseColor; to: frame.flashColor; duration: 105; easing.type: Easing.OutCubic }
-            ColorAnimation { target: frame; property: 'border.color'; from: frame.border.color; to: frame.flashBorderColor; duration: 105; easing.type: Easing.OutCubic }
+            ColorAnimation { target: frame; property: 'border.color'; from: Qt.rgba(1,0.15,0.15,0.55); to: frame.flashBorderColor; duration: 105; easing.type: Easing.OutCubic }
         }
     ParallelAnimation {
             PropertyAnimation { target: frame; property: 'scale'; to: 1.0; duration: 150; easing.type: Easing.InOutCubic }
@@ -618,10 +710,196 @@ Item {
                 } else if (which === 'exhaust') {
                     if (root._exhaustAutoExit) root.menuActive = false; else { root.menuActive = true; inactivityTimer.restart(); }
                     root._exhaustAutoExit = false;
+                    } else if (which === 'settings') {
+                        if (root._settingsAutoExit) root.menuActive = false; else { root.menuActive = true; inactivityTimer.restart(); }
+                        root._settingsAutoExit = false;
                 }
             }
         } }
     // Internal flags
     property bool _pendingSubmenuEntry: false
     property string _pendingSubmenuExit: ''
+
+        // SETTINGS SUBMENU UI (add near end to avoid interfering with existing layout layering)
+        Item {
+            id: settingsContainer
+            anchors.fill: submenuLayer
+            visible: root.inSubmenu && root.currentSubmenu === 'settings'
+            opacity: (root.inSubmenu && root.currentSubmenu === 'settings') ? submenuFade : 0
+            readonly property real optionSpacing: base * 0.42
+            property real settingsFontSelected: base * 0.26
+            property real settingsFontDim: base * 0.16
+            property real centerY: height/2
+            // Upward shift to align header with main menu vertical position
+            property real verticalShift: -base * 0.155
+            property bool hideSettingsFrame: false
+            Rectangle {
+                id: settingsFrame
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.horizontalCenterOffset: 75 // shifted right
+                // Keep frame vertically centered (like main menu frame) and move items instead
+                y: settingsContainer.centerY + settingsContainer.verticalShift + 20 - height/2
+                radius: 6
+                height: settingsContainer.settingsFontSelected * 1.25
+                width: frame.width // reuse main menu frame width (static sizing)
+                color: frame.baseColor
+                border.color: frame.border.color
+                border.width: 2
+                opacity: settingsContainer.opacity * (settingsContainer.hideSettingsFrame ? 0 : 1)
+                scale: 1
+                Behavior on y { NumberAnimation { duration: animMs; easing.type: Easing.OutCubic } }
+                // Selection confirm animation (mirrors main menu selectionConfirm)
+                SequentialAnimation {
+                    id: settingsConfirm
+                    running: false
+                    ParallelAnimation {
+                        PropertyAnimation { target: settingsFrame; property: 'scale'; from: 1; to: 1.08; duration: 105; easing.type: Easing.OutCubic }
+                        PropertyAnimation { target: settingsFrame; property: 'border.width'; from: 2; to: 5; duration: 105; easing.type: Easing.OutCubic }
+                        ColorAnimation { target: settingsFrame; property: 'color'; from: frame.baseColor; to: frame.flashColor; duration: 105; easing.type: Easing.OutCubic }
+                        ColorAnimation { target: settingsFrame; property: 'border.color'; from: frame.border.color; to: frame.flashBorderColor; duration: 105; easing.type: Easing.OutCubic }
+                    }
+                    ParallelAnimation {
+                        PropertyAnimation { target: settingsFrame; property: 'scale'; to: 1.0; duration: 150; easing.type: Easing.InOutCubic }
+                        PropertyAnimation { target: settingsFrame; property: 'border.width'; to: 2; duration: 150; easing.type: Easing.InOutCubic }
+                        ColorAnimation { target: settingsFrame; property: 'color'; to: frame.baseColor; duration: 150; easing.type: Easing.InOutCubic }
+                        ColorAnimation { target: settingsFrame; property: 'border.color'; to: frame.border.color; duration: 150; easing.type: Easing.InOutCubic }
+                    }
+                }
+            }
+            Item { // options wrapper for slide-in
+                id: settingsOptions
+                anchors.fill: parent
+                Repeater {
+                model: settingsItems.length
+                delegate: Text {
+                    property int idx: index
+                    // circular distance like main menu
+                    property int n: settingsItems.length
+                    property int raw: idx - settingsIndex
+                    property int dist: {
+                        var d = raw;
+                        var half = n / 2.0;
+                        if (d > half) d -= n; else if (d < -half) d += n;
+                        return d;
+                    }
+                    text: settingsItems[idx]
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.horizontalCenterOffset: 80 // shift list right
+                    y: settingsContainer.centerY + settingsContainer.verticalShift + 20 + dist * settingsContainer.optionSpacing - height/2
+                    font.pixelSize: (dist === 0 ? settingsContainer.settingsFontSelected : settingsContainer.settingsFontDim)
+                    color: 'white'
+                    opacity: (Math.abs(dist) === 0 ? 1.0 : (Math.abs(dist) === 1 ? 0.4 : 0.0))
+                    scale: dist === 0 ? 1.0 : 0.85
+                    Behavior on y { NumberAnimation { duration: animMs; easing.type: Easing.OutCubic } }
+                    Behavior on opacity { NumberAnimation { duration: animMs; easing.type: Easing.OutCubic } }
+                    Behavior on scale { NumberAnimation { duration: animMs; easing.type: Easing.OutCubic } }
+                    Behavior on font.pixelSize { NumberAnimation { duration: animMs; easing.type: Easing.OutCubic } }
+                    visible: opacity > 0.01
+                }
+                }
+            } // end options wrapper
+            Text {
+                // small header label
+                id: settingsHeader
+                text: 'settings'
+                anchors.top: parent.top
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.horizontalCenterOffset: -100 // shift header left
+                anchors.topMargin: base * 0.2 + settingsContainer.verticalShift
+                font.pixelSize: base * 0.20
+                color: '#cccccc'
+                opacity: settingsHeaderVisible ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+            }
+        }
+
+    // Flying label for settings transition
+    Text {
+        id: settingsFly
+        text: 'settings'
+        color: 'white'
+        font.pixelSize: root.selectedFont
+        visible: false
+        opacity: 0
+        z: 999
+        transformOrigin: Item.Center
+    scale: 1
+    }
+
+    // Enter animation for settings (position + scale + then options slide)
+    SequentialAnimation {
+        id: settingsEnterAnim
+        running: false
+        onFinished: {
+            settingsFly.visible = false;
+            settingsHeaderVisible = true;
+            // Show options
+            settingsOptionsAnim.start();
+            root.inSubmenu = true; // now officially inside submenu
+            settingsTransitionActive = false;
+        }
+        PropertyAnimation { id: settingsEnterAnim_animX; target: settingsFly; property: 'x'; duration: 260; easing.type: Easing.InOutCubic }
+        PropertyAnimation { id: settingsEnterAnim_animY; target: settingsFly; property: 'y'; duration: 260; easing.type: Easing.InOutCubic }
+        PropertyAnimation { id: settingsEnterAnim_animScale; target: settingsFly; property: 'scale'; duration: 260; easing.type: Easing.InOutCubic }
+        // Expose for setup
+        property alias animX: settingsEnterAnim_animX
+        property alias animY: settingsEnterAnim_animY
+        property alias animScale: settingsEnterAnim_animScale
+    }
+    ParallelAnimation {
+        id: settingsOptionsAnim
+        running: false
+        onStarted: { settingsOptions.opacity = 0 }
+        PropertyAnimation { target: settingsOptions; property: 'x'; from: settingsOptions.x; to: 0; duration: 260; easing.type: Easing.OutCubic }
+        PropertyAnimation { target: settingsOptions; property: 'opacity'; from: 0; to: 1; duration: 200; easing.type: Easing.OutCubic }
+    }
+    // Options exit (fade + slight slide right)
+    ParallelAnimation {
+        id: settingsOptionsExitAnim
+        running: false
+        onStarted: { /* keep current x as from */ }
+        onFinished: {
+            // Prepare flying label to grow back to frame center
+            var headerPos = settingsHeader.mapToItem(root, settingsHeader.width/2, settingsHeader.height/2);
+            settingsFly.text = 'settings';
+            settingsFly.font.pixelSize = root.selectedFont * 0.20/ root.selectedFont; // will be overridden by scale
+            settingsFly.x = headerPos.x - settingsFly.width/2;
+            settingsFly.y = headerPos.y - settingsFly.height/2;
+            settingsFly.scale = (base * 0.20) / root.selectedFont; // start small
+            settingsFly.opacity = 1;
+            settingsFly.visible = true;
+            // target = original frame center
+            var framePos = frame.mapToItem(root, frame.width/2, frame.height/2);
+            settingsExitAnim.animX.from = settingsFly.x; settingsExitAnim.animY.from = settingsFly.y; settingsExitAnim.animScale.from = settingsFly.scale;
+            settingsExitAnim.animX.to = framePos.x - settingsFly.width/2; settingsExitAnim.animY.to = framePos.y - settingsFly.height/2; settingsExitAnim.animScale.to = 1;
+            settingsExitAnim.start();
+        }
+        PropertyAnimation { target: settingsOptions; property: 'opacity'; to: 0; duration: 180; easing.type: Easing.InOutCubic }
+        PropertyAnimation { target: settingsOptions; property: 'x'; to: root.width * 0.15; duration: 240; easing.type: Easing.InOutCubic }
+    }
+    // Reverse flying label animation back to main menu frame
+    SequentialAnimation {
+        id: settingsExitAnim
+        running: false
+        onFinished: {
+            settingsFly.visible = false;
+            root.inSubmenu = false;
+            root.currentSubmenu = '';
+            submenuFade = 0;
+            settingsTransitionActive = false;
+            frameHideOverride = false; // show frame again per binding
+            if (root._settingsAutoExit) root.menuActive = false; else { root.menuActive = true; inactivityTimer.restart(); }
+            root._settingsAutoExit = false;
+        }
+        // Phase 1: scale up in place
+        PropertyAnimation { id: settingsExitAnim_animScale; target: settingsFly; property: 'scale'; duration: 180; easing.type: Easing.OutCubic }
+        // Phase 2: translate to center (keep final scale)
+        ParallelAnimation {
+            PropertyAnimation { id: settingsExitAnim_animX; target: settingsFly; property: 'x'; duration: 220; easing.type: Easing.InOutCubic }
+            PropertyAnimation { id: settingsExitAnim_animY; target: settingsFly; property: 'y'; duration: 220; easing.type: Easing.InOutCubic }
+        }
+        property alias animX: settingsExitAnim_animX
+        property alias animY: settingsExitAnim_animY
+        property alias animScale: settingsExitAnim_animScale
+    }
 }
