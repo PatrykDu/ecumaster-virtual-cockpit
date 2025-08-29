@@ -51,39 +51,39 @@ Window {
             Slider { id: fuelSlider; from: 0; to: 100; stepSize: 1; Layout.fillWidth: true; value: TEL.fuel; onValueChanged: TEL.fuel = Math.round(value) }
         }
 
-    // WATER TEMP SLIDER
-    RowLayout {
-            Layout.fillWidth: true; spacing: 8
-            Text { text: 'Water Temp: ' + TEL.waterTemp + ' °C'; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
-            Slider { id: waterTempSlider; from: 0; to: 150; stepSize: 1; Layout.fillWidth: true; value: TEL.waterTemp; onValueChanged: TEL.waterTemp = Math.round(value) }
-        }
-
-    // OIL TEMP SLIDER
+    // OIL TEMP SLIDER (moved before water per requested order)
     RowLayout {
             Layout.fillWidth: true; spacing: 8
             Text { text: 'Oil Temp: ' + TEL.oilTemp + ' °C'; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
             Slider { id: oilTempSlider; from: 0; to: 150; stepSize: 1; Layout.fillWidth: true; value: TEL.oilTemp; onValueChanged: TEL.oilTemp = Math.round(value) }
         }
 
-        // AFR SLIDER
+    // WATER TEMP SLIDER (after oil temp)
+    RowLayout {
+            Layout.fillWidth: true; spacing: 8
+            Text { text: 'Water Temp: ' + TEL.waterTemp + ' °C'; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
+            Slider { id: waterTempSlider; from: 0; to: 150; stepSize: 1; Layout.fillWidth: true; value: TEL.waterTemp; onValueChanged: TEL.waterTemp = Math.round(value) }
+        }
+
+        // CHARGING VOLTAGE SLIDER (before oil pressure & AFR)
         RowLayout {
                 Layout.fillWidth: true; spacing: 8
-                Text { text: 'AFR: ' + (TEL.afr ? TEL.afr.toFixed(1) : '0.0'); color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
-                Slider { id: afrSlider; from: 0.0; to: 25.0; stepSize: 0.1; Layout.fillWidth: true; value: TEL.afr; onValueChanged: TEL.afr = Math.round(value * 10) / 10 }
+                Text { text: 'Charge V: ' + (TEL.chargingVolt ? TEL.chargingVolt.toFixed(2) : '0.00'); color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
+                Slider { id: chargeSlider; from: 0.0; to: 20.0; stepSize: 0.05; Layout.fillWidth: true; value: TEL.chargingVolt; onValueChanged: TEL.chargingVolt = Math.round(value * 100) / 100 }
             }
 
-        // OIL PRESSURE SLIDER
+        // OIL PRESSURE SLIDER (after charging)
         RowLayout {
                 Layout.fillWidth: true; spacing: 8
                 Text { text: 'Oil P: ' + (TEL.oilPressure ? TEL.oilPressure.toFixed(1) : '0.0') + ' bar'; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
                 Slider { id: oilPressSlider; from: 0.0; to: 8.0; stepSize: 0.1; Layout.fillWidth: true; value: TEL.oilPressure; onValueChanged: TEL.oilPressure = Math.round(value * 10) / 10 }
             }
 
-        // CHARGING VOLTAGE SLIDER
+        // AFR SLIDER (last)
         RowLayout {
                 Layout.fillWidth: true; spacing: 8
-                Text { text: 'Charge V: ' + (TEL.chargingVolt ? TEL.chargingVolt.toFixed(2) : '0.00'); color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
-                Slider { id: chargeSlider; from: 0.0; to: 20.0; stepSize: 0.05; Layout.fillWidth: true; value: TEL.chargingVolt; onValueChanged: TEL.chargingVolt = Math.round(value * 100) / 100 }
+                Text { text: 'AFR: ' + (TEL.afr ? TEL.afr.toFixed(1) : '0.0'); color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
+                Slider { id: afrSlider; from: 0.0; to: 25.0; stepSize: 0.1; Layout.fillWidth: true; value: TEL.afr; onValueChanged: TEL.afr = Math.round(value * 10) / 10 }
             }
 
     // STATUS TOGGLES (custom rows)
