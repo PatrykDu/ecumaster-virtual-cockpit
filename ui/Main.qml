@@ -100,14 +100,17 @@ Window {
             anchors.leftMargin: 340
         // Enlarged width for bigger icons (was 0.09)
         width: content.width * 0.095
-            height: width
+            // Increase height to allow extra offset for the top row
+            property int topRowOffset: 30
+            height: width + topRowOffset
             visible: true
             z: 600
         // Larger cell fraction for bigger icons
         property real cell: width * 0.50
             Grid {
                 id: licGrid
-                anchors.centerIn: parent
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
             rows: 2; columns: 2;
             // Match right cluster style: positive spacing instead of overlap
             rowSpacing: leftIndicatorsCluster.cell * 0.09
@@ -123,7 +126,8 @@ Window {
                         width: leftIndicatorsCluster.cell
                         height: width
                         property bool active: TEL && TEL[modelData.key]
-
+                        // Shift only the top row visually downward by topRowOffset (use transform so Grid layout isn't overridden)
+                        transform: Translate { y: index < 2 ? leftIndicatorsCluster.topRowOffset : 0 }
                         opacity: 1
                         Image {
                             id: indicatorImg
@@ -133,15 +137,15 @@ Window {
                             smooth: true
                             cache: true
                             opacity: (active || bgRect.opacity > 0.05) ? 1 : 0
-                            // Unified sizing (previously fogRear smaller & underglow taller)
                             width: parent.width
                             height: parent.height
                         }
                         Rectangle {
                             id: bgRect
                             anchors.centerIn: indicatorImg
-                            width: Math.max(0, indicatorImg.paintedWidth - 5)
-                            height: Math.max(0, indicatorImg.paintedHeight - 5)
+                            // For shifted (top row) icons keep full size to avoid appearing shorter after transform
+                            width: Math.max(0, indicatorImg.paintedWidth - (index < 2 ? 3 : 5))
+                            height: Math.max(0, indicatorImg.paintedHeight - (index < 2 ? 3 : 5))
                             radius: width * 0.18
                             color: modelData.color
                             opacity: active ? 0.95 : 0.0
@@ -160,13 +164,16 @@ Window {
             anchors.right: parent.right
             anchors.rightMargin: 370
             width: content.width * 0.09
-            height: width
+            // Extra vertical space to allow offsetting top row
+            property int topRowOffset: 20
+            height: width + topRowOffset
             visible: true
             z: 600
             property real cell: width * 0.48
             Grid {
                 id: ricGrid
-                anchors.centerIn: parent
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
                 rows: 2; columns: 2;
                 // Increased row spacing (previously overlapping with negative spacing)
                 rowSpacing: rightIndicatorsCluster.cell * 0.14
@@ -184,6 +191,8 @@ Window {
                         height: width
                         // Dynamic access: if property not yet implemented in Telemetry it'll just be falsy
                         property bool active: TEL && TEL[modelData.key]
+                        // Lower only the top row (indexes 0 and 1)
+                        transform: Translate { y: index < 2 ? rightIndicatorsCluster.topRowOffset : 0 }
                         opacity: 1
                         Image {
                             id: ricIndicatorImg
@@ -199,9 +208,9 @@ Window {
                         Rectangle {
                             id: ricBgRect
                             anchors.centerIn: ricIndicatorImg
-                            // For parking icon give a bit more pad so whole symbol fits cleanly
-                            width: modelData.key === 'park' ? Math.max(0, ricIndicatorImg.paintedWidth ) : Math.max(0, ricIndicatorImg.paintedWidth - 5)
-                            height: modelData.key === 'park' ? Math.max(0, ricIndicatorImg.paintedHeight) : Math.max(0, ricIndicatorImg.paintedHeight - 5)
+                            // Unified padding: top row (charging, park) shrink 3px, bottom row shrink 5px
+                            width: Math.max(0, ricIndicatorImg.paintedWidth - (index < 2 ? 3 : 5))
+                            height: Math.max(0, ricIndicatorImg.paintedHeight - (index < 2 ? 3 : 5))
                             radius: width * 0.18
                             color: modelData.color
                             opacity: active ? 0.95 : 0.0
