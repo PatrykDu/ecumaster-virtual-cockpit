@@ -44,6 +44,13 @@ Window {
         }
     }
 
+    // Live distance updates (immediate 0.1 km trip / 1 km odometer refresh)
+    Connections {
+        target: TEL
+        function onTripChanged(v) { root.tripValue = v }
+        function onOdometerChanged(v) { root.odometerValue = v }
+    }
+
     function startTransition() {
         splashAnim.running = true
     }

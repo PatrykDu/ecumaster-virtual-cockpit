@@ -1,12 +1,14 @@
 from __future__ import annotations
-from PySide6.QtCore import QObject, Signal, Property, QMutex, QMutexLocker, Slot
-import os, json, math
+from PySide6.QtCore import QObject, Signal, Property, QMutex, QMutexLocker, Slot, QTimer
+import os, json, math, time
 
 # TELEMETRY OBJECT
 
 class Telemetry(QObject):
     rpmChanged = Signal(int)
     speedChanged = Signal(float)
+    tripChanged = Signal(float)  # emits displayed trip (0.1 km resolution)
+    odometerChanged = Signal(int)  # emits whole km odometer
     leftBlinkChanged = Signal(bool)
     rightBlinkChanged = Signal(bool)
     highBeamChanged = Signal(bool)
@@ -55,6 +57,37 @@ class Telemetry(QObject):
         self._afr = 14.7  # Air-Fuel Ratio (stoich baseline)
         self._chargingVolt = 14.2  # Battery/charging voltage
         self._oilPressure = 0.0  # bar
+    # Distance / odometer tracking
+        self._odometer_km = 0.0  # accumulated precise odometer (km, fractional)
+        self._trip_precise_km = 0.0  # precise trip distance (km, fractional)
+        self._last_trip_saved_tenth = 0  # last persisted trip tenth (trip * 10 as int)
+        self._last_odo_saved_int = 0  # last emitted odometer whole km (int)
+        self._last_odo_saved_tenth = 0  # last persisted odometer tenth (odometer *10)
+        self._last_speed_time = None  # set on first speed sample
+        self._last_speed_value = 0.0
+        self._distance_enabled = True  # could expose toggle later
+
+        # Attempt to load persisted odometer/trip so we continue counting
+        try:
+            data_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'data.json'))
+            if os.path.isfile(data_path):
+                with open(data_path, 'r', encoding='utf-8') as f:
+                    obj = json.load(f) or {}
+                if isinstance(obj.get('odometer'), (int, float)):
+                    self._odometer_km = float(obj['odometer'])
+                    self._last_odo_saved_int = int(self._odometer_km)
+                    self._last_odo_saved_tenth = int(self._odometer_km * 10 + 1e-6)
+                if isinstance(obj.get('trip'), (int, float)):
+                    self._trip_precise_km = float(obj['trip'])
+                    self._last_trip_saved_tenth = int(self._trip_precise_km * 10 + 1e-6)
+        except Exception as e:
+            print(f"[Telemetry:init] load distance error: {e}")
+
+        # Periodic distance integration (ensures accumulation even with steady speed)
+        self._distance_timer = QTimer()
+        self._distance_timer.setInterval(500)  # 0.5s -> resolution ~14 m at 100 km/h
+        self._distance_timer.timeout.connect(self._distance_tick)
+        self._distance_timer.start()
 
     # NAV SLOTS
     @Slot()
@@ -90,10 +123,24 @@ class Telemetry(QObject):
         return self._speed
 
     def setSpeed(self, v: float):
-        if v == self._speed:
-            return
-        self._speed = v
-        self.speedChanged.emit(v)
+        # Just record speed; periodic timer integrates.
+        if self._last_speed_time is None:
+            self._last_speed_time = time.monotonic()
+        self._last_speed_value = v
+        if v != self._speed:
+            self._speed = v
+            self.speedChanged.emit(v)
+
+    # Expose properties for direct QML binding (optional)
+    def getTrip(self) -> float:
+        # Displayed trip rounded down to 0.1 km like persistence logic
+        return self._last_trip_saved_tenth / 10.0
+
+    def getOdometer(self) -> int:
+        return self._last_odo_saved_int
+
+    trip = Property(float, getTrip, notify=tripChanged)
+    odometer = Property(int, getOdometer, notify=odometerChanged)
 
     speed = Property(float, getSpeed, setSpeed, notify=speedChanged)
 
@@ -486,5 +533,88 @@ class Telemetry(QObject):
             obj['trip'] = float(trip_value)
             with open(data_path, 'w', encoding='utf-8') as f:
                 json.dump(obj, f, ensure_ascii=False, indent=2)
+            # If trip reset requested (value == 0), also reset internal precise counters
+            if abs(trip_value) < 1e-9:
+                self._trip_precise_km = 0.0
+                self._last_trip_saved_tenth = 0
+                try:
+                    self.tripChanged.emit(0.0)
+                except Exception:
+                    pass
         except Exception as e:
             print(f"[saveTrip] error: {e}")
+
+    # --- INTERNAL DISTANCE INTEGRATION LOGIC ---
+    def _accumulate_distance(self, dist_km: float):
+        """Accumulate distance travelled (km) updating trip/odometer thresholds.
+
+        Rules:
+        - Trip persists each 0.1 km (100 m) increment
+        - Odometer persists each 1 km increment
+        This keeps file writes modest while providing required resolution.
+        """
+        self._trip_precise_km += dist_km
+        self._odometer_km += dist_km
+
+        # Trip threshold (0.1 km)
+        new_trip_tenth = int(self._trip_precise_km * 10 + 1e-6)
+        if new_trip_tenth > self._last_trip_saved_tenth:
+            # Write every missing 0.1 so UI (polling) can catch intermediate states
+            while self._last_trip_saved_tenth < new_trip_tenth:
+                self._last_trip_saved_tenth += 1
+                trip_to_store = self._last_trip_saved_tenth / 10.0
+                try:
+                    self.saveTrip(trip_to_store)
+                    self.tripChanged.emit(trip_to_store)
+                except Exception:
+                    break
+
+        # Odometer threshold (1 km)
+        # Odometer persistence: save every 0.1 km but only emit signal on whole km
+        new_odo_tenth = int(self._odometer_km * 10 + 1e-6)
+        if new_odo_tenth > self._last_odo_saved_tenth:
+            while self._last_odo_saved_tenth < new_odo_tenth:
+                self._last_odo_saved_tenth += 1
+                odo_to_store = self._last_odo_saved_tenth / 10.0
+                try:
+                    self.saveOdometer(odo_to_store)
+                except Exception:
+                    break
+        new_odo_int = new_odo_tenth // 10
+        if new_odo_int > self._last_odo_saved_int:
+            self._last_odo_saved_int = new_odo_int
+            try:
+                self.odometerChanged.emit(self._last_odo_saved_int)
+            except Exception:
+                pass
+
+    # Optional helper for external debug/testing
+    def debugGetDistances(self):
+        return {
+            'odometer_km_precise': self._odometer_km,
+            'trip_km_precise': self._trip_precise_km,
+            'trip_saved_tenth': self._last_trip_saved_tenth,
+            'odometer_saved_int': self._last_odo_saved_int,
+            'odometer_saved_tenth': self._last_odo_saved_tenth
+        }
+
+    def _distance_tick(self):
+        if not self._distance_enabled or self._last_speed_time is None:
+            return
+        try:
+            now = time.monotonic()
+            dt = now - self._last_speed_time
+            if dt <= 0:
+                return
+            if self._last_speed_value <= 0:
+                self._last_speed_time = now
+                return
+            # Clamp dt to avoid huge jumps after pauses (e.g., app start/sleep)
+            if dt > 5.0:
+                dt = 1.0  # treat as one second of travel at current speed
+            dist_km = self._last_speed_value * (dt / 3600.0)
+            if dist_km > 0:
+                self._accumulate_distance(dist_km)
+            self._last_speed_time = now
+        except Exception as e:
+            print(f"[Telemetry:_distance_tick] error: {e}")
