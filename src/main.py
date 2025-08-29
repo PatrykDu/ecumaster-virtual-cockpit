@@ -33,8 +33,12 @@ def main():  # MAIN
     tel = Telemetry()
 
     engine = QQmlApplicationEngine()
+    # Expose both target and design sizes + scale so QML can adapt.
     engine.rootContext().setContextProperty("WIDTH", config.WIDTH)
     engine.rootContext().setContextProperty("HEIGHT", config.HEIGHT)
+    engine.rootContext().setContextProperty("DESIGN_WIDTH", getattr(config, 'DESIGN_WIDTH', config.WIDTH))
+    engine.rootContext().setContextProperty("DESIGN_HEIGHT", getattr(config, 'DESIGN_HEIGHT', config.HEIGHT))
+    engine.rootContext().setContextProperty("SCALE", getattr(config, 'SCALE', 1.0))
     engine.rootContext().setContextProperty("TEL", tel)
 
     # QML PATH

@@ -19,6 +19,9 @@ class Telemetry(QObject):
     oilTempChanged = Signal(int)
     checkEngineChanged = Signal(bool)
     underglowChanged = Signal(bool)
+    chargingChanged = Signal(bool)
+    absChanged = Signal(bool)
+    wheelPressureChanged = Signal(bool)
 
     # NAV EVENTS
     navUpEvent = Signal()
@@ -43,6 +46,9 @@ class Telemetry(QObject):
         self._checkEngine = False
         self._got_first = False
         self._mtx = QMutex()
+        self._charging = False
+        self._abs = False
+        self._wheelPressure = False
 
     # NAV SLOTS
     @Slot()
@@ -223,6 +229,42 @@ class Telemetry(QObject):
 
     underglow = Property(bool, getUnderglow, setUnderglow, notify=underglowChanged)
 
+    # CHARGING (battery warning)
+    def getCharging(self) -> bool:
+        return self._charging
+
+    def setCharging(self, v: bool):
+        if v == self._charging:
+            return
+        self._charging = v
+        self.chargingChanged.emit(v)
+
+    charging = Property(bool, getCharging, setCharging, notify=chargingChanged)
+
+    # ABS WARNING
+    def getAbs(self) -> bool:
+        return self._abs
+
+    def setAbs(self, v: bool):
+        if v == self._abs:
+            return
+        self._abs = v
+        self.absChanged.emit(v)
+
+    abs = Property(bool, getAbs, setAbs, notify=absChanged)
+
+    # WHEEL PRESSURE WARNING
+    def getWheelPressure(self) -> bool:
+        return self._wheelPressure
+
+    def setWheelPressure(self, v: bool):
+        if v == self._wheelPressure:
+            return
+        self._wheelPressure = v
+        self.wheelPressureChanged.emit(v)
+
+    wheelPressure = Property(bool, getWheelPressure, setWheelPressure, notify=wheelPressureChanged)
+
     def updateFromFrame(self, rpm: int, speed_kmh: float, flags: int):
         with QMutexLocker(self._mtx):
             self.setRpm(rpm)
@@ -299,6 +341,10 @@ class Telemetry(QObject):
         self.setLowBeam(low_beam)
         self.setFogRear(fog_rear)
         self.setUnderglow(underglow)
+        # Demo patterns for new indicators (simple periodic toggles)
+        self.setCharging(int((t / 7) % 2) == 0 and rpm > 2500)
+        self.setAbs(int((t / 11) % 3) == 0 and speed > 80)
+        self.setWheelPressure(int((t / 9) % 2) == 0 and fuel_val < 30)
 
     # PERSISTENCE
     @Slot(int, int, int, int)

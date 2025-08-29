@@ -8,10 +8,16 @@ import "components"
 
 Window {
     id: root
+    // Physical window size (actual display)
     width: WIDTH
     height: HEIGHT
     color: "black"
     visible: true
+
+    // Logical design resolution (authoring space)
+    readonly property int designWidth: typeof DESIGN_WIDTH !== 'undefined' ? DESIGN_WIDTH : width
+    readonly property int designHeight: typeof DESIGN_HEIGHT !== 'undefined' ? DESIGN_HEIGHT : height
+    readonly property real uiScale: Math.min(width / designWidth, height / designHeight)
 
     property bool splashDone: false
     property bool firstData: false
@@ -75,10 +81,14 @@ Window {
         ScriptAction { script: splash.visible = false }
     }
 
-    // MAIN CONTENT
+    // MAIN CONTENT (scaled logical design surface)
     Item {
         id: content
-        anchors.fill: parent
+        width: root.designWidth
+        height: root.designHeight
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        scale: root.uiScale
         opacity: root.splashDone ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.OutQuad } }
 
@@ -88,15 +98,20 @@ Window {
             anchors.bottomMargin: 10
             anchors.left: parent.left
             anchors.leftMargin: 340
-            width: parent.width * 0.09
+        // Enlarged width for bigger icons (was 0.09)
+        width: content.width * 0.095
             height: width
             visible: true
             z: 600
-            property real cell: width * 0.48
+        // Larger cell fraction for bigger icons
+        property real cell: width * 0.50
             Grid {
                 id: licGrid
                 anchors.centerIn: parent
-                    rows: 2; columns: 2; rowSpacing: -leftIndicatorsCluster.cell * 0.28; columnSpacing: leftIndicatorsCluster.width * 0.04
+            rows: 2; columns: 2;
+            // Match right cluster style: positive spacing instead of overlap
+            rowSpacing: leftIndicatorsCluster.cell * 0.09
+            columnSpacing: leftIndicatorsCluster.width * 0.04
                 Repeater {
                     model: [
                         { key: 'lowBeam', src: '../assets/low_beam.png', color: '#009a1e' },
@@ -118,16 +133,75 @@ Window {
                             smooth: true
                             cache: true
                             opacity: (active || bgRect.opacity > 0.05) ? 1 : 0
-                            readonly property bool isUnder: modelData.key === 'underglow'
-                            readonly property bool isFogRear: modelData.key === 'fogRear'
-                            width: isFogRear ? parent.width * 0.90 : parent.width
-                            height: isUnder ? parent.height * 1.30 : (isFogRear ? parent.height * 0.80 : parent.height)
+                            // Unified sizing (previously fogRear smaller & underglow taller)
+                            width: parent.width
+                            height: parent.height
                         }
                         Rectangle {
                             id: bgRect
                             anchors.centerIn: indicatorImg
                             width: Math.max(0, indicatorImg.paintedWidth - 5)
                             height: Math.max(0, indicatorImg.paintedHeight - 5)
+                            radius: width * 0.18
+                            color: modelData.color
+                            opacity: active ? 0.95 : 0.0
+                            z: -1
+                            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.InOutQuad } }
+                        }
+                    }
+                }
+            }
+        }
+
+        Item { // RIGHT INDICATORS CLUSTER
+            id: rightIndicatorsCluster
+            anchors.bottom: tripText.top
+            anchors.bottomMargin: 10
+            anchors.right: parent.right
+            anchors.rightMargin: 370
+            width: content.width * 0.09
+            height: width
+            visible: true
+            z: 600
+            property real cell: width * 0.48
+            Grid {
+                id: ricGrid
+                anchors.centerIn: parent
+                rows: 2; columns: 2;
+                // Increased row spacing (previously overlapping with negative spacing)
+                rowSpacing: rightIndicatorsCluster.cell * 0.14
+                columnSpacing: rightIndicatorsCluster.width * 0.04
+                Repeater {
+                    // Order: top-left, top-right, bottom-left, bottom-right
+                    model: [
+                        { key: 'charging', src: '../assets/charging.png', color: '#ff2020' },
+                        { key: 'park',     src: '../assets/parking.png',  color: '#ff2020' },
+                        { key: 'abs',      src: '../assets/abs.png',      color: '#e6cc00' },
+                        { key: 'wheelPressure', src: '../assets/wheel_pressure.png', color: '#e6cc00' }
+                    ]
+                    delegate: Item {
+                        width: rightIndicatorsCluster.cell
+                        height: width
+                        // Dynamic access: if property not yet implemented in Telemetry it'll just be falsy
+                        property bool active: TEL && TEL[modelData.key]
+                        opacity: 1
+                        Image {
+                            id: ricIndicatorImg
+                            anchors.centerIn: parent
+                            source: Qt.resolvedUrl(modelData.src)
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            cache: true
+                            opacity: (active || ricBgRect.opacity > 0.05) ? 1 : 0
+                            width: parent.width
+                            height: parent.height
+                        }
+                        Rectangle {
+                            id: ricBgRect
+                            anchors.centerIn: ricIndicatorImg
+                            // For parking icon give a bit more pad so whole symbol fits cleanly
+                            width: modelData.key === 'park' ? Math.max(0, ricIndicatorImg.paintedWidth ) : Math.max(0, ricIndicatorImg.paintedWidth - 5)
+                            height: modelData.key === 'park' ? Math.max(0, ricIndicatorImg.paintedHeight) : Math.max(0, ricIndicatorImg.paintedHeight - 5)
                             radius: width * 0.18
                             color: modelData.color
                             opacity: active ? 0.95 : 0.0
@@ -206,8 +280,8 @@ Window {
             id: clusterCenter
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
-            anchors.verticalCenterOffset: parent.height * 0.10
-            width: parent.height * 1.20 // size of the center gauge
+            anchors.verticalCenterOffset: content.height * 0.10
+            width: content.height * 1.20 // size of the center gauge
             height: width
 
             Gauge {
@@ -477,12 +551,12 @@ Window {
     // FUEL GAUGE
     FuelGauge {
             id: fuelGauge
-            anchors.left: parent.left
-            anchors.bottom: parent.bottom
+            anchors.left: content.left
+            anchors.bottom: content.bottom
             anchors.leftMargin: width * 0.02 + 25
             anchors.bottomMargin: height * 0.02 + 20
-            width: root.width * 0.22
-            height: root.height * 0.32
+            width: content.width * 0.22
+            height: content.height * 0.32
         }
     // LEFT CLUSTER
     LeftCluster {
@@ -503,12 +577,12 @@ Window {
     // WATER TEMP GAUGE
     WaterTempGauge {
             id: waterTempGauge
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
+            anchors.right: content.right
+            anchors.bottom: content.bottom
             anchors.rightMargin: width * 0.02 + 25
             anchors.bottomMargin: height * 0.02 + 20
-            width: root.width * 0.22
-            height: root.height * 0.32
+            width: content.width * 0.22
+            height: content.height * 0.32
             tempC: TEL ? TEL.waterTemp : 0
         }
         RightCluster {
@@ -517,7 +591,7 @@ Window {
             anchors.bottomMargin: 24
             anchors.right: waterTempGauge.left
             anchors.rightMargin: -280
-            width: root.width * 0.18
+            width: content.width * 0.18
         }
 
     // ODOMETER
@@ -527,8 +601,8 @@ Window {
             color: 'white'
             font.pixelSize: 28
             font.bold: true
-            anchors.left: parent.left
-            anchors.bottom: parent.bottom
+            anchors.left: content.left
+            anchors.bottom: content.bottom
             anchors.leftMargin: 340
             anchors.bottomMargin: 35
             z: 600
@@ -540,8 +614,8 @@ Window {
             color: 'white'
             font.pixelSize: 28
             font.bold: true
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
+            anchors.right: content.right
+            anchors.bottom: content.bottom
             anchors.rightMargin: 360
             anchors.bottomMargin: 35
             z: 600

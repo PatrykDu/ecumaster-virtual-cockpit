@@ -1,14 +1,26 @@
+![dashboard](dashboard.png)
 # Virtual Cluster (PySide6/QML)
 
-Virtual engine cluster (RPM + Speed) with data from a Teensy 4.1 (EMU Black CAN) or a DEMO mode fallback.
+Virtual automotive cluster (single concentric RPM ring with inner speed, bar‑style fuel & water temperature gauges, status/warning indicators) driven by Teensy 4.1 (EMU Black CAN) or a built‑in DEMO mode fallback.
+
+## Current UI Components
+- Central RPM ring (0–7000) with: warning (yellow) band, dynamic oil‑temperature based redline (animated), smooth needle easing.
+- Inner circle: large digital speed (km/h) + logo + adaptive background glow (neutral / warn / red) based on RPM state.
+- Side bar gauges: FuelGauge (left) & WaterTempGauge (right) – segmented bars with smooth gradient fill and icon blocks. Fuel color transitions low(red) → mid(yellow) → full(white). Water temp transitions cold(blue) → normal(neutral) → hot(red).
+- Indicator clusters (left/right) with unified sizing & fade animations: ABS, battery/charging, tire pressure, parking, underglow, low beam, high beam, rear fog, etc.
+- Independent left/right turn signal components flanking the main ring (animated green background fade in/out).
+- Pulsing CHECK ENGINE indicator with graceful fade‑out.
+- Odometer + Trip readouts (trip flashes/pulses on reset action).
 
 ## Features
 - PySide6 + QML (fullscreen, target 60 FPS)
-- Splash screen + smooth transition to the main scene
-- Two dials: RPM (0–8000, red from 6500), Speed (0–220 km/h)
-- Icons: turn signals L/R, high beam, fog, park/brake (placeholders)
-- Automatic switch to DEMO if Teensy / serial port is not available
-- Resolution parameters in `config.py` (1920×720 default; can change to 1280×480)
+- Splash screen (logo) with smooth fade; auto dismiss on first telemetry frame or after 1.2 s
+- Dynamic redline (table‑driven interpolation vs oil temperature)
+- Automatic DEMO fallback when serial device missing
+- Custom canvas‑rendered bar gauges (fuel / water) with non‑linear color gradients
+- RPM state background transitions (neutral → yellow warn → red)
+- Expanded indicator set (turn signals, check engine, underglow, ABS, charging, tire pressure, parking, beams, rear fog)
+- Resolution + scale abstraction in `config.py` (authored at 1920×720; default target 1280×480; single uniform scale)
 
 ## Requirements
 Python 3.11+
@@ -44,7 +56,7 @@ video=HDMI-A-1:1280x480@60D quiet loglevel=0 vt.global_cursor_default=0
 ```
 
 ### Autostart (systemd)
-Update the path in `systemd/gauges.service` if the repository is not at `/home/pi/virtual-cluster`.
+Update the path in `systemd/gauges.service` if the repository is not located at `/home/pi/virtual-cluster`.
 ```bash
 sudo cp systemd/gauges.service /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -52,7 +64,7 @@ sudo systemctl enable gauges.service
 sudo systemctl start gauges.service
 ```
 
-## Changing resolution
+## Changing Resolution / Scaling
 Edit `config.py`:
 ```python
 WIDTH = 1280
@@ -60,7 +72,10 @@ HEIGHT = 480
 ```
 Restart the application.
 
-## Environment variables
+### Logical Design vs Physical Scaling
+The UI is authored at 1920×720. A single `content` root is uniformly scaled to the physical size (e.g. 1280×480). Inside QML, reference `content.width` / `content.height` instead of the window to remain resolution‑independent. The exported `SCALE` (e.g. 0.6666 for 1280/1920) is available for pixel‑perfect edge cases.
+
+## Environment Variables
 `TEENSY_DEV` – custom serial device path (e.g. `/dev/ttyACM1`).
 
 ## Frame format from Teensy
@@ -68,26 +83,30 @@ Binary (little-endian) 14 bytes:
 ```
 MAGIC(u16)=0xA55A, VER(u8)=1, LEN(u8)=14, RPM(u16), VSS_cm_s(u16), FLAGS(u16), CRC16-X25(u16)
 ```
-FLAGS bits:
+Currently used FLAGS bits (frame may evolve):
 ```
-0: Left turn
-1: Right turn
-2: High beam
-3: Fog
-4: Park / Brake
+bit0: Left turn
+bit1: Right turn
+bit2: High beam
+bit3: Park / Brake (was fog earlier)
+bit4..11: Fuel (8 bits)
 ```
 Speed: `km/h = (VSS_cm_s / 100.0) * 0.036`.
 
-## Manual tests
-1. DEMO: Disconnect Teensy / missing port. Run `python src/main.py` → dials animate, icons blink.
-2. Serial: Connect Teensy, ensure `/dev/ttyACM0` exists, restart. Log shows `[io_teensy] Opened serial ...`. Values update with real data.
-3. Different port: `export TEENSY_DEV=/dev/ttyACM1 && python src/main.py`.
-4. Splash: Logo up to 1.2 s or shorter if first frame arrives earlier.
+## Manual Tests
+1. DEMO: Disconnect Teensy / missing port → run `python src/main.py` → RPM ring animates, speed updates, fuel & temp bars cycle, indicators blink.
+2. Serial: Attach Teensy, ensure `/dev/ttyACM0` exists, restart → log shows `[io_teensy] Opened serial ...` and live data.
+3. Alternate port: `export TEENSY_DEV=/dev/ttyACM1 && python src/main.py`.
+4. Splash timing: Splash hides <1.2 s if first frame arrives sooner.
+5. Dynamic redline: In DEMO observe red band shifting upward as oil temp increases.
+6. Fuel / Temp gradients: Observe smooth color transitions as demo cycles.
 
 ## TODO
-- Backlight: BL_EN / DIM via additional commands to Teensy.
-- Better icons (SVG / Path) and animations.
-- FPS / vsync tuning or capping.
+- Backlight (BL_EN / DIM control via Teensy)
+- Migrate icons to SVG/Path (hiDPI friendly)
+- Real tire pressure input (currently demo pattern)
+- User settings persistence (brightness, themes, thresholds)
+- Unit tests for frame parsing & redline logic
 
 ## License
-MIT (adjust if needed).
+MIT
