@@ -8,7 +8,8 @@ Window {
     id: dev
     title: "Dev Panel"
     width: 420
-    height: 600
+    // Dynamic height to fit all controls (with padding)
+    height: devCol ? Math.min(900, devCol.implicitHeight + 24) : 700
     visible: true
     color: "#202225"
     Component.onCompleted: {
@@ -22,6 +23,7 @@ Window {
     }
 
     ColumnLayout {
+        id: devCol
         anchors.fill: parent
         anchors.margins: 12
         spacing: 12
@@ -62,6 +64,27 @@ Window {
             Text { text: 'Oil Temp: ' + TEL.oilTemp + ' °C'; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
             Slider { id: oilTempSlider; from: 0; to: 150; stepSize: 1; Layout.fillWidth: true; value: TEL.oilTemp; onValueChanged: TEL.oilTemp = Math.round(value) }
         }
+
+        // AFR SLIDER
+        RowLayout {
+                Layout.fillWidth: true; spacing: 8
+                Text { text: 'AFR: ' + (TEL.afr ? TEL.afr.toFixed(1) : '0.0'); color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
+                Slider { id: afrSlider; from: 0.0; to: 25.0; stepSize: 0.1; Layout.fillWidth: true; value: TEL.afr; onValueChanged: TEL.afr = Math.round(value * 10) / 10 }
+            }
+
+        // OIL PRESSURE SLIDER
+        RowLayout {
+                Layout.fillWidth: true; spacing: 8
+                Text { text: 'Oil P: ' + (TEL.oilPressure ? TEL.oilPressure.toFixed(1) : '0.0') + ' bar'; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
+                Slider { id: oilPressSlider; from: 0.0; to: 8.0; stepSize: 0.1; Layout.fillWidth: true; value: TEL.oilPressure; onValueChanged: TEL.oilPressure = Math.round(value * 10) / 10 }
+            }
+
+        // CHARGING VOLTAGE SLIDER
+        RowLayout {
+                Layout.fillWidth: true; spacing: 8
+                Text { text: 'Charge V: ' + (TEL.chargingVolt ? TEL.chargingVolt.toFixed(2) : '0.00'); color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
+                Slider { id: chargeSlider; from: 0.0; to: 20.0; stepSize: 0.05; Layout.fillWidth: true; value: TEL.chargingVolt; onValueChanged: TEL.chargingVolt = Math.round(value * 100) / 100 }
+            }
 
     // STATUS TOGGLES (custom rows)
     // Row 1 centered: Left, Chk, Right

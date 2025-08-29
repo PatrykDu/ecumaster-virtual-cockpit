@@ -1,6 +1,6 @@
 from __future__ import annotations
 from PySide6.QtCore import QObject, Signal, Property, QMutex, QMutexLocker, Slot
-import os, json
+import os, json, math
 
 # TELEMETRY OBJECT
 
@@ -22,6 +22,9 @@ class Telemetry(QObject):
     chargingChanged = Signal(bool)
     absChanged = Signal(bool)
     wheelPressureChanged = Signal(bool)
+    afrChanged = Signal(float)
+    chargingVoltChanged = Signal(float)
+    oilPressureChanged = Signal(float)
 
     # NAV EVENTS
     navUpEvent = Signal()
@@ -49,6 +52,9 @@ class Telemetry(QObject):
         self._charging = False
         self._abs = False
         self._wheelPressure = False
+        self._afr = 14.7  # Air-Fuel Ratio (stoich baseline)
+        self._chargingVolt = 14.2  # Battery/charging voltage
+        self._oilPressure = 0.0  # bar
 
     # NAV SLOTS
     @Slot()
@@ -265,6 +271,51 @@ class Telemetry(QObject):
 
     wheelPressure = Property(bool, getWheelPressure, setWheelPressure, notify=wheelPressureChanged)
 
+    # AFR (Air-Fuel Ratio)
+    def getAfr(self) -> float:
+        return self._afr
+
+    def setAfr(self, v: float):
+        # Clamp broader dev range 0..25 (gauge still visualizes 10..18 window)
+        if v < 0.0: v = 0.0
+        if v > 25.0: v = 25.0
+        # Avoid excessive signal spam for tiny fluctuations <0.01
+        if abs(v - self._afr) < 0.01:
+            return
+        self._afr = v
+        self.afrChanged.emit(v)
+
+    afr = Property(float, getAfr, setAfr, notify=afrChanged)
+
+    # CHARGING VOLTAGE (separate from boolean warning)
+    def getChargingVolt(self) -> float:
+        return self._chargingVolt
+
+    def setChargingVolt(self, v: float):
+        # Accept a broad engineering range; gauge will clamp visually 10..16
+        if v < 0.0: v = 0.0
+        if v > 20.0: v = 20.0
+        if abs(v - self._chargingVolt) < 0.01:
+            return
+        self._chargingVolt = v
+        self.chargingVoltChanged.emit(v)
+
+    chargingVolt = Property(float, getChargingVolt, setChargingVolt, notify=chargingVoltChanged)
+
+    # OIL PRESSURE (bar)
+    def getOilPressure(self) -> float:
+        return self._oilPressure
+
+    def setOilPressure(self, v: float):
+        if v < 0.0: v = 0.0
+        if v > 10.0: v = 10.0
+        if abs(v - self._oilPressure) < 0.01:
+            return
+        self._oilPressure = v
+        self.oilPressureChanged.emit(v)
+
+    oilPressure = Property(float, getOilPressure, setOilPressure, notify=oilPressureChanged)
+
     def updateFromFrame(self, rpm: int, speed_kmh: float, flags: int):
         with QMutexLocker(self._mtx):
             self.setRpm(rpm)
@@ -345,6 +396,21 @@ class Telemetry(QObject):
         self.setCharging(int((t / 7) % 2) == 0 and rpm > 2500)
         self.setAbs(int((t / 11) % 3) == 0 and speed > 80)
         self.setWheelPressure(int((t / 9) % 2) == 0 and fuel_val < 30)
+        # AFR oscillation: center 14.4..15.0 with occasional rich dip
+        afr_base = 14.7 + math.sin(t * 0.8) * 0.6  # 14.1..15.3
+        if int(t) % 7 == 0:  # brief rich event
+            afr_base -= 2.0 * max(0.0, 0.5 - ((t % 7) * 0.5))  # quick dip
+        self.setAfr(afr_base)
+        # Charging voltage slight ripple 14.0..14.5 with occasional dips/spikes
+        volt = 14.25 + math.sin(t * 0.35) * 0.25
+        if int(t) % 19 == 0:
+            volt += 0.6 * math.sin(t * 3.0)  # brief spike ripple
+        if int(t) % 23 == 0:
+            volt -= 0.8 * math.sin(t * 4.0)  # brief dip ripple
+        self.setChargingVolt(volt)
+        # Oil pressure simulated: rises with rpm, small noise
+        press = max(0.0, min(8.0, 1.0 + (self._rpm / 7000.0) * 5.5 + math.sin(t * 1.1) * 0.4))
+        self.setOilPressure(press)
 
     # PERSISTENCE
     @Slot(int, int, int, int)
