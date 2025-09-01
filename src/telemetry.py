@@ -385,15 +385,16 @@ class Telemetry(QObject):
         def tri(time_s: float, period: float) -> float:
             ph = (time_s % period) / period
             return ph * 2.0 if ph < 0.5 else 2.0 - ph * 2.0
-
         rpm_frac = tri(t, 6.0)
-        rpm = int(rpm_frac * 7800)
+        # RPM limited to 0-7000 for demo (was 7800)
+        rpm = int(rpm_frac * 7000)
         speed = rpm_frac * 230.0
         fuel_val = int(tri(t, 22.0) * 100)
 
         if os.environ.get("DEVELOP_MODE") == "2":
             water_temp = int(40 + tri(t * 0.85, 14.0) * (140 - 40))
-            oil_temp   = int(40 + tri(t * 0.80 + 1.3, 15.0) * (140 - 40))
+            # Oil temp limited to 29-81°C in demo mode 2
+            oil_temp   = int(29 + tri(t * 0.80 + 1.3, 15.0) * (81 - 29))
             charging_volt = 11.0 + tri(t * 0.95, 11.0) * 5.0
             oil_press = tri(t * 1.10, 7.5) * 8.0
             afr_val = 10.0 + tri(t * 0.75 + 0.4, 13.0) * 8.0
@@ -420,14 +421,14 @@ class Telemetry(QObject):
         fog_rear = int((t / 5) % 2) == 0
         underglow = int((t * 0.5) % 2) == 0
 
-        flags = (
-            (1 if blink_left else 0) |
-            ((1 if blink_right else 0) << 1) |
-            ((1 if high_beam else 0) << 2) |
-            ((1 if park else 0) << 3) |
-            ((fuel_val & 0xFF) << 4)
-        )
-        self.updateFromFrame(rpm, speed, flags)
+        # Direct property update path (match other telemetry props; avoid updateFromFrame)
+        self.setRpm(rpm)
+        self.setSpeed(speed)
+        self.setLeftBlink(blink_left)
+        self.setRightBlink(blink_right)
+        self.setHighBeam(high_beam)
+        self.setPark(park)
+        self.setFuel(fuel_val)
         self.setWaterTemp(water_temp)
         self.setOilTemp(oil_temp)
         self.setCheckEngine(check_engine)
@@ -440,6 +441,9 @@ class Telemetry(QObject):
         self.setAfr(afr_val)
         self.setChargingVolt(charging_volt)
         self.setOilPressure(oil_press)
+        if not self._got_first:
+            self._got_first = True
+            self.firstFrameReceived.emit()
 
     # PERSISTENCE
     @Slot(int, int, int, int)
