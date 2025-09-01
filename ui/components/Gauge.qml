@@ -44,8 +44,35 @@ Item {
     property bool smoothNeedle: false
     // Toggle between classic needle and sweep arc
     property bool showNeedle: true
-    property color valueArcColor: needleColor
-    property real valueArcThickness: Math.min(ringWidth * 0.65, 20)
+    property color valueArcColor: needleColor // legacy (unused after marker change)
+    property real valueArcThickness: Math.min(ringWidth * 0.65, 20) // legacy
+    // Marker (radial bar) properties when showNeedle == false
+    property color markerColor: needleColor
+    property real markerInnerRadius: radius * 0.32
+    property real markerOuterRadius: radius - ringWidth
+    property real markerWidth: Math.max(3, radius * 0.025) // doubled thickness
+        // Visual enhancement properties for marker mode
+        property bool markerGradient: true
+        property color markerColorEnd: Qt.rgba(
+            Math.min(1, (Qt.rgba(markerColor.r, markerColor.g, markerColor.b, markerColor.a).r * 0.85) + 0.05),
+            Math.min(1, (Qt.rgba(markerColor.r, markerColor.g, markerColor.b, markerColor.a).g * 0.85) + 0.05),
+            Math.min(1, (Qt.rgba(markerColor.r, markerColor.g, markerColor.b, markerColor.a).b * 0.85) + 0.05),
+            1)
+        property bool markerGlow: true
+        property real markerGlowAlpha: 0.28
+        property color markerBorderColor: Qt.rgba(0,0,0,0.55)
+    // White pointer mode (biała kreska z czerwoną poświatą) – domyślnie off, żeby nie psuć innych wskaźników
+    property bool markerWhiteNeedle: false
+    property color markerCoreColor: 'white'
+    property color markerGlowColor: redlineColor   // poświata
+    property int markerGlowPasses: 4
+    property real markerGlowMaxAlpha: 0.18
+    property real markerGlowSpreadPx: 4.5          // przyrost szerokości halo na pass
+    property bool markerSharpTip: true             // jeśli true rysuje trójkątny czubek
+    property real markerTaperStartFraction: 0.70   // od ilu % długości zaczyna się zwężanie (0..1)
+    property real markerTipCurveFactor: 0.55       // 0..1 jak bardzo zaokrąglone boki czubka (0=ostry trójkąt, 0.5..0.7=łagodny)
+    property bool markerGlowClip: true             // przycina poświatę aby nie wychodziła poza długość markera
+    property real markerGlowFalloffPower: 1.4      // kształt zaniku (większe = szybsze wygaszanie na zewnątrz)
 
     property color needleColor: '#ff3333'
     property real needleTipInset: 14       // distance from outer radius to needle tip
@@ -247,31 +274,131 @@ Item {
         }
     }
 
-    // VALUE SWEEP ARC (used when showNeedle == false)
+    // VALUE MARKER (radial bar) when showNeedle == false
     Canvas {
-        id: valueArc
+        id: markerCanvas
         anchors.fill: parent
         visible: !root.showNeedle
         onPaint: {
-            var ctx = getContext('2d'); ctx.reset()
+            var ctx = getContext('2d'); ctx.reset();
             var cx = width/2, cy = height/2; ctx.translate(cx, cy)
             var frac = (root.value - root.min)/(root.max - root.min)
             if (frac < 0) frac = 0; if (frac > 1) frac = 1
-            var startA = (root.startAngle + root.orientationOffset) * Math.PI/180.0
-            var endA = (root.startAngle + frac*(root.endAngle-root.startAngle) + root.orientationOffset) * Math.PI/180.0
-            var arcRadius = root.radius - root.ringWidth/2
-            ctx.lineWidth = root.valueArcThickness
-            var inRed = root.value >= root.redFrom
-            ctx.strokeStyle = inRed ? root.redlineColor : root.valueArcColor
-            ctx.lineCap = 'round'
-            ctx.beginPath(); ctx.arc(0,0, arcRadius, startA, endA, false); ctx.stroke()
+            var ang = (root.startAngle + frac*(root.endAngle-root.startAngle) + root.orientationOffset) * Math.PI/180.0
+            var innerR = root.markerInnerRadius
+            var outerR = root.markerOuterRadius
+            if (outerR < innerR) { var tmp = outerR; outerR = innerR; innerR = tmp }
+            ctx.save(); ctx.rotate(ang)
+                var w = root.markerWidth
+                if (root.markerWhiteNeedle) {
+                    // Hybrid shape: prosty pasek do ~taperStart, potem zwężenie do ostrego czubka
+                    var baseHalf = w/2
+                    var taperFrac = root.markerSharpTip ? root.markerTaperStartFraction : 1.0
+                    if (taperFrac < 0.05) taperFrac = 0.05
+                    if (taperFrac > 0.95) taperFrac = 0.95
+                    var taperX = innerR + (outerR - innerR) * taperFrac
+                    function buildPointerPath() {
+                        ctx.beginPath()
+                        if (taperFrac < 0.999) {
+                            ctx.moveTo(innerR, -baseHalf)
+                            ctx.lineTo(taperX, -baseHalf)
+                            var tipLen = outerR - taperX
+                            if (tipLen < 2) {
+                                ctx.lineTo(outerR, -baseHalf)
+                                ctx.lineTo(outerR, baseHalf)
+                                ctx.lineTo(taperX, baseHalf)
+                            } else {
+                                var cf = Math.max(0, Math.min(1, root.markerTipCurveFactor))
+                                var ctrlX = taperX + tipLen * cf
+                                var ctrlYOffset = baseHalf * 0.9
+                                ctx.quadraticCurveTo(ctrlX, -ctrlYOffset, outerR, 0)
+                                ctx.quadraticCurveTo(ctrlX, ctrlYOffset, taperX, baseHalf)
+                            }
+                            ctx.lineTo(innerR, baseHalf)
+                        } else {
+                            if (root.markerSharpTip) {
+                                var cf2 = Math.max(0, Math.min(1, root.markerTipCurveFactor))
+                                var ctrlX2 = innerR + (outerR - innerR) * cf2
+                                ctx.moveTo(innerR, -baseHalf)
+                                ctx.quadraticCurveTo(ctrlX2, -baseHalf*0.9, outerR, 0)
+                                ctx.quadraticCurveTo(ctrlX2, baseHalf*0.9, innerR, baseHalf)
+                            } else {
+                                ctx.moveTo(innerR, -baseHalf)
+                                ctx.lineTo(outerR, -baseHalf)
+                                ctx.lineTo(outerR, baseHalf)
+                                ctx.lineTo(innerR, baseHalf)
+                            }
+                        }
+                        ctx.closePath()
+                    }
+                    function buildPointerPathWithHalf(h) {
+                        var savedBase = baseHalf
+                        baseHalf = h
+                        buildPointerPath()
+                        baseHalf = savedBase
+                    }
+                    // Poświata wypełniana poszerzonymi kształtami (dopasowana do czubka)
+                    if (root.markerGlow) {
+                        var passes2 = Math.max(1, root.markerGlowPasses)
+                        // Rysujemy od najbardziej zewnętrznej warstwy do wewnętrznej.
+                        for (var gp = passes2; gp >= 1; gp--) {
+                            var outerFrac = gp / passes2         // 1..(1/passes)
+                            var expansion = root.markerGlowSpreadPx * outerFrac
+                            var innerFrac = 1 - outerFrac        // 0 przy zewnętrznej, ~1 przy wewnętrznej
+                            var alphaFrac = Math.pow(innerFrac, root.markerGlowFalloffPower)
+                            if (alphaFrac <= 0) continue
+                            buildPointerPathWithHalf(baseHalf + expansion)
+                            ctx.fillStyle = root.markerGlowColor
+                            ctx.globalAlpha = root.markerGlowMaxAlpha * alphaFrac
+                            ctx.fill()
+                        }
+                        ctx.globalAlpha = 1.0
+                    }
+                    // Rdzeń biały
+                    buildPointerPath()
+                    ctx.fillStyle = root.markerCoreColor
+                    ctx.fill()
+                    // Cienka linia wewnętrzna
+                    if (w > 3) {
+                        ctx.strokeStyle = 'rgba(0,0,0,0.32)'
+                        ctx.lineWidth = 1
+                        ctx.beginPath();
+                        ctx.moveTo(innerR + 1.0, 0)
+                        ctx.lineTo(taperX - 0.6, 0)
+                        ctx.stroke()
+                    }
+                } else {
+                    var baseColor = (root.value >= root.redFrom ? root.redlineColor : root.markerColor)
+                    if (root.markerGlow) {
+                        ctx.globalAlpha = root.markerGlowAlpha
+                        ctx.fillStyle = baseColor
+                        for (var g=0; g<3; g++) {
+                            ctx.beginPath(); ctx.rect(innerR - g*1.5, -(w/2) - g*1.2, (outerR - innerR) + g*3.0, w + g*2.4); ctx.fill()
+                        }
+                        ctx.globalAlpha = 1.0
+                    }
+                    if (root.markerGradient) {
+                        var grd = ctx.createLinearGradient(innerR,0, outerR,0)
+                        grd.addColorStop(0, baseColor)
+                        grd.addColorStop(1, (root.value >= root.redFrom ? root.redlineColor : root.markerColorEnd))
+                        ctx.fillStyle = grd
+                    } else {
+                        ctx.fillStyle = baseColor
+                    }
+                    ctx.beginPath(); ctx.rect(innerR, -w/2, (outerR - innerR), w); ctx.fill()
+                    ctx.strokeStyle = root.markerBorderColor
+                    ctx.lineWidth = 1
+                    ctx.beginPath(); ctx.moveTo(innerR, -w/2); ctx.lineTo(outerR, -w/2); ctx.stroke()
+                    ctx.beginPath(); ctx.moveTo(innerR,  w/2); ctx.lineTo(outerR,  w/2); ctx.stroke()
+                }
+            ctx.restore()
         }
         Component.onCompleted: if (!root.showNeedle) requestPaint()
     }
 
-    // Update sweep arc when value changes
-    onValueChanged: if (!showNeedle) valueArc.requestPaint()
-    onStartAngleChanged: if (!showNeedle) valueArc.requestPaint()
-    onEndAngleChanged: if (!showNeedle) valueArc.requestPaint()
-    // (redFrom handled above with scale repaint)
+    // Update marker when value or geometry changes
+    onValueChanged: if (!showNeedle) markerCanvas.requestPaint()
+    onStartAngleChanged: if (!showNeedle) markerCanvas.requestPaint()
+    onEndAngleChanged: if (!showNeedle) markerCanvas.requestPaint()
+    // (redFrom handled above with scale repaint & marker repaint)
 }

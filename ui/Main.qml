@@ -315,7 +315,20 @@ Window {
                 value: TEL.rpm
                 max: 7000
                 min: 0
-                showNeedle: false  // use sweep arc instead of needle
+                showNeedle: false  // używamy markera zamiast klasycznej igły
+                markerWhiteNeedle: true
+                markerSharpTip: true
+                markerGlow: true
+                // Szersze, wyraźniejsze halo
+                markerGlowPasses: 9
+                markerGlowMaxAlpha: 0.30
+                markerGlowSpreadPx: 18
+                markerGlowFalloffPower: 1.2  // wolniejsze wygaszanie dla mocniejszego wewnętrznego żaru
+                markerWidth: width * 0.010   // zwężona biała część (połowa wcześniejszej szerokości)
+                // Skrócenie markera: przesuwamy początek dalej od środka i lekko cofamy czubek
+                markerInnerRadius: radius * 0.68   // przesunięty dalej od środka żeby nie podchodził pod wewnętrzne koło
+                markerOuterRadius: radius - ringWidth - width * 0.004  // lekkie skrócenie zewnętrznego końca
+                markerTaperStartFraction: 0.63      // korekta proporcji po przesunięciu
                 redFrom: 5994
                 redTo: 7000
                 label: "" // hide label here
