@@ -42,6 +42,17 @@ Item {
 
     // Optional smoothing mode for high-jitter sources (set per instance)
     property bool smoothNeedle: false
+    // Separate smoothing for marker (when showNeedle == false)
+    property bool smoothMarker: true
+    // Internal smoothed marker value
+    property real markerSmoothedValue: value
+    // Velocity in value units per second for SmoothedAnimation (tunable)
+    property real markerSmoothVelocity: (max - min) / 0.25   // reach full scale in ~250ms
+    SmoothedAnimation on markerSmoothedValue {
+        // 'enabled' is not a valid property for SmoothedAnimation; control via running
+        velocity: root.markerSmoothVelocity
+        running: root.smoothMarker && !root.showNeedle
+    }
     // Toggle between classic needle and sweep arc
     property bool showNeedle: true
     property color valueArcColor: needleColor // legacy (unused after marker change)
@@ -106,8 +117,8 @@ Item {
     onNeedleTipInsetChanged: needleCanvas.requestPaint()
     onNeedleTailChanged: needleCanvas.requestPaint()
     onNeedleThicknessChanged: needleCanvas.requestPaint()
-    onRedFromChanged: { scaleCanvas.requestPaint(); if (!showNeedle) valueArc.requestPaint() }
-    onRedToChanged: { scaleCanvas.requestPaint(); if (!showNeedle) valueArc.requestPaint() }
+    onRedFromChanged: { scaleCanvas.requestPaint(); if (!showNeedle) markerCanvas.requestPaint() }
+    onRedToChanged: { scaleCanvas.requestPaint(); if (!showNeedle) markerCanvas.requestPaint() }
     onWarnFromChanged: scaleCanvas.requestPaint()
     onWarnToChanged: scaleCanvas.requestPaint()
 
@@ -295,7 +306,8 @@ Item {
         onPaint: {
             var ctx = getContext('2d'); ctx.reset();
             var cx = width/2, cy = height/2; ctx.translate(cx, cy)
-            var frac = (root.value - root.min)/(root.max - root.min)
+            var useVal = (root.smoothMarker ? root.markerSmoothedValue : root.value)
+            var frac = (useVal - root.min)/(root.max - root.min)
             if (frac < 0) frac = 0; if (frac > 1) frac = 1
             var ang = (root.startAngle + frac*(root.endAngle-root.startAngle) + root.orientationOffset) * Math.PI/180.0
             var innerR = root.markerInnerRadius
@@ -466,7 +478,15 @@ Item {
     }
 
     // Update marker when value or geometry changes
-    onValueChanged: if (!showNeedle) markerCanvas.requestPaint()
+    onValueChanged: if (!showNeedle) {
+        if (smoothMarker) {
+            // Update smoothed target; SmoothedAnimation drives repaint via onMarkerSmoothedValueChanged
+            markerSmoothedValue = value
+        } else {
+            markerCanvas.requestPaint()
+        }
+    }
+    onMarkerSmoothedValueChanged: if (!showNeedle && smoothMarker) markerCanvas.requestPaint()
     onStartAngleChanged: if (!showNeedle) markerCanvas.requestPaint()
     onEndAngleChanged: if (!showNeedle) markerCanvas.requestPaint()
     // (redFrom handled above with scale repaint & marker repaint)
