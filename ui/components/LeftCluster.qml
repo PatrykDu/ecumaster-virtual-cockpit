@@ -579,17 +579,24 @@ Item {
         target: TEL
         function onNavUpEvent() {
             if (root.inSubmenu) {
-                if (root.currentSubmenu === 'suspension' && root.wheelEditIndex >= 0) {
-                    adjustWheel(+1);
-                        return;
-                    } else if (root.currentSubmenu === 'exhaust') {
-                        toggleExhaust();
-                        return;
-                    } else if (root.currentSubmenu === 'settings') {
-                        settingsIndex = (settingsIndex - 1 + settingsItems.length) % settingsItems.length;
+                if (root.currentSubmenu === 'suspension') {
+                    if (root.wheelEditIndex >= 0) {
+                        adjustWheel(+1);
+                    } else {
+                        // enter edit mode on first wheel instead of moving main menu
+                        root.wheelEditIndex = 0;
                         submenuInactivityTimer.restart();
-                        return;
+                    }
+                    return; // never fall through to main menu while in submenu
+                } else if (root.currentSubmenu === 'exhaust') {
+                    toggleExhaust();
+                    return;
+                } else if (root.currentSubmenu === 'settings') {
+                    settingsIndex = (settingsIndex - 1 + settingsItems.length) % settingsItems.length;
+                    submenuInactivityTimer.restart();
+                    return;
                 }
+                return; // safety
             }
             if (!root.menuActive) {
                 root.menuActive = true;
@@ -601,17 +608,23 @@ Item {
         }
         function onNavDownEvent() {
             if (root.inSubmenu) {
-                if (root.currentSubmenu === 'suspension' && root.wheelEditIndex >= 0) {
-                    adjustWheel(-1);
-                        return;
-                    } else if (root.currentSubmenu === 'exhaust') {
-                        toggleExhaust();
-                        return;
-                    } else if (root.currentSubmenu === 'settings') {
-                        settingsIndex = (settingsIndex + 1) % settingsItems.length;
+                if (root.currentSubmenu === 'suspension') {
+                    if (root.wheelEditIndex >= 0) {
+                        adjustWheel(-1);
+                    } else {
+                        root.wheelEditIndex = 0; // start editing on first wheel
                         submenuInactivityTimer.restart();
-                        return;
+                    }
+                    return; // block main menu movement
+                } else if (root.currentSubmenu === 'exhaust') {
+                    toggleExhaust();
+                    return;
+                } else if (root.currentSubmenu === 'settings') {
+                    settingsIndex = (settingsIndex + 1) % settingsItems.length;
+                    submenuInactivityTimer.restart();
+                    return;
                 }
+                return; // safety
             }
             if (!root.menuActive) {
                 root.menuActive = true;
