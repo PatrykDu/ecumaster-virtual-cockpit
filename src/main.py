@@ -7,7 +7,7 @@ if PROJECT_ROOT not in sys.path: sys.path.insert(0, PROJECT_ROOT)
 
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
-from PySide6.QtCore import Qt, QUrl, qInstallMessageHandler, QtMsgType
+from PySide6.QtCore import Qt, QUrl, qInstallMessageHandler, QtMsgType, QLibraryInfo
 
 import config
 from telemetry import Telemetry
@@ -23,10 +23,66 @@ def _qt_msg_handler(mode, ctx, message):
 qInstallMessageHandler(_qt_msg_handler)
 
 
+def _choose_platform_for_prod():
+    """Minimal platform chooser (prod only). Prefers linuxfb, then eglfs, else minimal when headless.
+       Respects existing QT_QPA_PLATFORM or DISPLAY. Adds light preflight for plugin presence."""
+    if os.environ.get("QT_QPA_PLATFORM"):
+        print(f"[PLATFORM] Keep user QT_QPA_PLATFORM={os.environ['QT_QPA_PLATFORM']}")
+        return
+    if os.environ.get("DISPLAY"):
+        print("[PLATFORM] DISPLAY present -> desktop plugin auto")
+        return
+    have_fb = os.path.exists('/dev/fb0')
+    have_dri = os.path.exists('/dev/dri/card0')
+    order = [('linuxfb', have_fb), ('eglfs', have_dri)]
+    chosen = next((n for n, ok in order if ok), 'minimal')
+    # Preflight: ensure plugin library exists (skip for minimal)
+    try:
+        plat_dir = os.path.join(QLibraryInfo.path(QLibraryInfo.PluginsPath), 'platforms')
+        def exists(p): return os.path.isfile(os.path.join(plat_dir, f'libq{p}.so'))
+        if chosen != 'minimal' and not exists(chosen):
+            alt = 'eglfs' if chosen == 'linuxfb' else 'linuxfb'
+            if exists(alt):
+                print(f"[PLATFORM] '{chosen}' missing, fallback -> {alt}")
+                chosen = alt
+            else:
+                print(f"[PLATFORM] Neither linuxfb/eglfs available -> minimal")
+                chosen = 'minimal'
+    except Exception as e:
+        print(f"[PLATFORM] preflight error: {e}")
+    os.environ['QT_QPA_PLATFORM'] = chosen
+    print(f"[PLATFORM] Using {chosen}")
+    if chosen == 'linuxfb':
+        # Remove stray eglfs vars that can confuse plugin loading
+        removed = []
+        for k in list(os.environ):
+            if k.startswith('QT_QPA_EGLFS'):
+                removed.append(k); del os.environ[k]
+        if removed:
+            print(f"[PLATFORM] linuxfb: cleared {', '.join(removed)}")
+    # Headless rendering backend: prefer software RHI for stability
+    if chosen in ('linuxfb','eglfs','minimal') and not os.environ.get('DISPLAY'):
+        os.environ.setdefault('QSG_RHI_BACKEND','software')
+    # Avoid legacy path forcing odd blending
+    if os.environ.get('QT_QUICK_BACKEND'):
+        try:
+            del os.environ['QT_QUICK_BACKEND']
+            print('[PLATFORM] Cleared QT_QUICK_BACKEND')
+        except Exception:
+            pass
+
+
 def main():  # MAIN
-    # ENV
-    os.environ.setdefault("QML_XHR_ALLOW_FILE_READ", "1")
-    os.environ.setdefault("QT_QUICK_BACKEND", "software")  # fallback safety; can remove if GPU OK
+    # Determine mode early
+    dev_mode = os.environ.get("DEVELOP_MODE", "").lower() in ("1","true","yes","on")
+    if dev_mode:
+        # Dev: leave previous simple behaviour intact
+        os.environ.setdefault("QML_XHR_ALLOW_FILE_READ", "1")
+        os.environ.setdefault("QT_QUICK_BACKEND", "software")  # keep legacy path if you liked current look
+    else:
+        print("[MODE] Production startup -> platform auto-selection")
+        os.environ.setdefault("QML_XHR_ALLOW_FILE_READ", "1")
+        _choose_platform_for_prod()
     app = QGuiApplication(sys.argv)
     app.setApplicationName("VirtualCluster")
 
@@ -80,7 +136,6 @@ def main():  # MAIN
         pass
 
     # MODE
-    dev_mode = os.environ.get("DEVELOP_MODE", "").lower() in ("1", "true", "yes", "on")
     if dev_mode:
         win.setFlags(Qt.Window)
         win.show()
