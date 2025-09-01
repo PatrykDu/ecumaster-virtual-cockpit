@@ -342,14 +342,24 @@ Window {
                 warnFrom: 5300
                 warnTo: 6000
                 warnColor: '#ffcc33'
-                property int oilTempLocal: TEL ? TEL.oilTemp : 0
-                property int dynRedline: redlineForOilTemp(oilTempLocal)
-                Behavior on redFrom { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
-                Behavior on redTo { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
-                onDynRedlineChanged: {
-                    redFrom = dynRedline
-                    redTo = 7000
-                }
+                    // Demo mode detection (DEVELOP_MODE_INT==2 -> full-span demo on Pi)
+                    property bool demo2: (typeof DEV_MODE_INT !== 'undefined' && DEV_MODE_INT === 2)
+                    property int oilTempLocal: TEL ? TEL.oilTemp : 0
+                    // Raw dynamic redline from oil temperature
+                    property int dynRedlineRaw: redlineForOilTemp(oilTempLocal)
+                    // Throttle / quantize in demo2 to reduce repaint churn (50 RPM steps)
+                    property int dynRedline: demo2 ? Math.round(dynRedlineRaw / 50) * 50 : dynRedlineRaw
+                    onDynRedlineChanged: {
+                        if (redFrom !== dynRedline) {
+                            redFrom = dynRedline
+                            redTo = 7000
+                        }
+                    }
+                    // Conditional animation: disable heavy tweening for rapid tiny changes in demo2
+                    Behavior on redFrom { enabled: !demo2; NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+                    Behavior on redTo { enabled: !demo2; NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+                    // Enable needle smoothing only in demo2 (to hide timing jitter from software backend)
+                    smoothNeedle: demo2
             }
 
             // SPEED INNER (SPEED / LOGO)

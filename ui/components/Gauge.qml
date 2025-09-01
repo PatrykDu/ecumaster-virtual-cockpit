@@ -40,6 +40,9 @@ Item {
     property bool drawCanvasLabels: true
     property bool useTextLabels: false
 
+    // Optional smoothing mode for high-jitter sources (set per instance)
+    property bool smoothNeedle: false
+
     property color needleColor: '#ff3333'
     property real needleTipInset: 14       // distance from outer radius to needle tip
     property real needleTail: 60           // tail length behind center (px)
@@ -158,7 +161,7 @@ Item {
 
     // CENTER VALUE
     Text {
-        id: valueText
+        id: centerValue
         visible: root.showCenterValue
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
@@ -166,24 +169,27 @@ Item {
         color: root.centerValueColor
         font.pixelSize: root.fontSizeValue
         font.bold: true
-        layer.enabled: true
+        renderType: Text.NativeRendering
     }
+    // CENTER LABEL
     Text {
-        visible: root.showCenterLabel
+        id: centerLabel
+        visible: root.showCenterLabel && root.label.length > 0
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: valueText.bottom
+        anchors.top: centerValue.bottom
         anchors.topMargin: 8
         text: root.label
         color: root.centerLabelColor
         font.pixelSize: 40
+        font.bold: false
+        renderType: Text.NativeRendering
     }
 
-    // NEEDLE (simplified red line pointer)
+    // NEEDLE (simplified red line pointer with optional smoothing)
     Item {
         id: needle
         width: root.width
         height: root.height
-        // reuse existing animation logic
         property real targetAngle: {
             var frac = (root.value - root.min)/(root.max - root.min)
             if (frac < 0) frac = 0
@@ -191,10 +197,21 @@ Item {
             return (root.startAngle + frac*(root.endAngle-root.startAngle))
         }
         property real currentAngle: 0
-        Behavior on currentAngle { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
-        onTargetAngleChanged: currentAngle = targetAngle
+        // Step animation (enabled when NOT smoothing)
+        Behavior on currentAngle { enabled: !root.smoothNeedle; NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
+        // SmoothedAnimation driven manually for stability
+        SmoothedAnimation { id: smoothAnim; target: needle; property: "currentAngle"; velocity: 2200; running: false }
+        onTargetAngleChanged: {
+            if (root.smoothNeedle) {
+                smoothAnim.stop();
+                smoothAnim.to = targetAngle;
+                smoothAnim.running = true;
+            } else {
+                currentAngle = targetAngle;
+            }
+        }
         onCurrentAngleChanged: needleCanvas.requestPaint()
-        property real lineWidth: Math.max(2, root.needleThickness * 0.22) // thin line derived from old thickness
+        property real lineWidth: Math.max(2, root.needleThickness * 0.22)
         property real hubRadius: lineWidth * 2.2
         Canvas {
             id: needleCanvas
@@ -207,11 +224,9 @@ Item {
                 ctx.translate(cx, cy)
                 var ang = (needle.currentAngle + root.orientationOffset) * Math.PI/180.0
                 var tip = root.radius - root.needleTipInset
-                // draw glow (optional subtle outer stroke)
                 ctx.save()
                 ctx.rotate(ang)
                 ctx.lineCap = 'round'
-                // main line
                 ctx.strokeStyle = root.needleColor
                 ctx.lineWidth = needle.lineWidth
                 ctx.beginPath()
@@ -219,7 +234,6 @@ Item {
                 ctx.lineTo(tip,0)
                 ctx.stroke()
                 ctx.restore()
-                // hub
                 ctx.fillStyle = '#222'
                 ctx.beginPath(); ctx.arc(0,0, needle.hubRadius, 0, Math.PI*2); ctx.fill()
                 ctx.strokeStyle = root.needleColor
