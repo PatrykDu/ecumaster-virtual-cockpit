@@ -30,6 +30,15 @@ Window {
 
     signal requestStart()
 
+    // Proper ESC handling: only quit in production (DEV_MODE is injected from Python)
+    Item {
+        id: escCatcher
+        anchors.fill: parent
+        focus: true
+        Keys.onReleased: if (event.key === Qt.Key_Escape) Qt.quit()
+        Component.onCompleted: escCatcher.forceActiveFocus()
+    }
+
     Component.onCompleted: {
         splashTimer.start()
         loadOdometer()

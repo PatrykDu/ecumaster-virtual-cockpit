@@ -96,6 +96,7 @@ def main():  # MAIN
     engine.rootContext().setContextProperty("DESIGN_HEIGHT", getattr(config, 'DESIGN_HEIGHT', config.HEIGHT))
     engine.rootContext().setContextProperty("SCALE", getattr(config, 'SCALE', 1.0))
     engine.rootContext().setContextProperty("TEL", tel)
+    engine.rootContext().setContextProperty("DEV_MODE", dev_mode)
 
     # QML PATH
     qml_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ui', 'Main.qml'))
