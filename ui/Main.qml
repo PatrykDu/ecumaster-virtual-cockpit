@@ -694,10 +694,28 @@ Window {
     }
 
     function redlineForOilTemp(oilTemp) {
+        // Proportional stretch: original temp points 30..85 shifted so max (5994) now at 90°C.
+        // Scale factor applied to (temp-30): new = 30 + (old-30) * (90-30)/(85-30) = 30 + (old-30)*60/55.
+        // Rounded to nearest whole °C while keeping monotonic progression.
+        // RPM breakpoints unchanged to preserve curve shape.
         var table = [
-            [30,2500],[35,2750],[39,3000],[44,3250],[48,3500],[53,3850],
-            [58,4200],[62,4500],[67,4800],[71,5100],[76,5400],[80,5700],
-            [85,5994]
+            // Early warm‑up (unchanged low temps)
+            [30,2498],
+            [35,2750],
+            [40,2994],
+            [45,3250],
+            [50,3498],
+            // Stretch to delay 4000 until exactly 60°C
+            [55,3700],  // lowered vs previous to slow approach
+            [60,3994],  // 4000 RPM only reached at 60°C
+            // Post‑60 ramp to 5000 at 80°C (approx 100 RPM / °C avg)
+            [65,4250],
+            [70,4498],
+            [75,4750],
+            [80,4994],  // target maintained
+            // Final ramp 80→90°C
+            [85,5498],
+            [90,5994]
         ];
         if (oilTemp <= table[0][0]) return table[0][1];
         if (oilTemp >= table[table.length-1][0]) return table[table.length-1][1];
