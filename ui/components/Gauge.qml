@@ -75,6 +75,17 @@ Item {
     property real markerGlowFalloffPower: 1.4      // kształt zaniku (większe = szybsze wygaszanie na zewnątrz)
     property real markerGlowInwardFactor: 1.25     // mnożnik jak daleko halo wchodzi do środka względem expansion
     property real markerGlowExtraInward: 6         // stały dodatkowy pikselowy zasięg do środka niezależny od expansion
+    property bool markerRoundBase: true            // zaokrąglone wewnętrzne (bliżej centrum) zakończenie markera
+    property bool markerRoundOuterTip: false       // zaokrąglony zewnętrzny koniec (zamiast ostrego czubka)
+    // Dodatkowe wewnętrzne białe halo (delikatne rozmycie bieli zanim przejdzie w czerwone)
+    property bool markerInnerWhiteGlow: true
+    property color markerInnerGlowColor: 'white'
+    property int markerInnerGlowPasses: 5           // więcej warstw dla płynniejszego gradientu
+    property real markerInnerGlowMaxAlpha: 0.38     // mocniejsze – bardziej rzeczywiście białe
+    property real markerInnerGlowSpreadPx: 7.5      // odrobinę większe
+    property real markerInnerGlowFalloffPower: 1.05 // wolniejszy zanik = jaśniejszy środek
+    property real markerInnerGlowInwardFactor: 1.1
+    property real markerInnerGlowExtraInward: 4
 
     property color needleColor: '#ff3333'
     property real needleTipInset: 14       // distance from outer radius to needle tip
@@ -295,16 +306,33 @@ Item {
                 if (root.markerWhiteNeedle) {
                     // Hybrid shape: prosty pasek do ~taperStart, potem zwężenie do ostrego czubka
                     var baseHalf = w/2
-                    var taperFrac = root.markerSharpTip ? root.markerTaperStartFraction : 1.0
+                    var useTaper = root.markerSharpTip && !root.markerRoundOuterTip
+                    var taperFrac = useTaper ? root.markerTaperStartFraction : 1.0
                     if (taperFrac < 0.05) taperFrac = 0.05
                     if (taperFrac > 0.95) taperFrac = 0.95
                     var taperX = innerR + (outerR - innerR) * taperFrac
                     function buildPointerPath(innerShift) {
                         // innerShift (>=0) allows glow to extend further inward than white core
                         ctx.beginPath()
-                        if (taperFrac < 0.999) {
+                        if (root.markerRoundOuterTip) {
+                            var innerStartR = innerR - (innerShift||0)
+                            var bodyEnd = outerR - baseHalf // tak aby łuk sięgał do outerR
+                            if (bodyEnd < innerStartR + 0.5) bodyEnd = innerStartR + 0.5
+                            // prostokątny korpus
+                            ctx.moveTo(innerStartR, -baseHalf)
+                            ctx.lineTo(bodyEnd, -baseHalf)
+                            // półkole zewnętrzne
+                            ctx.arc(bodyEnd, 0, baseHalf, -Math.PI/2, Math.PI/2, false)
+                            ctx.lineTo(innerStartR, baseHalf)
+                            if (root.markerRoundBase) {
+                                ctx.arc(innerStartR, 0, baseHalf, Math.PI/2, -Math.PI/2, true)
+                            }
+                            ctx.closePath(); return;
+                        }
+                        if (useTaper && taperFrac < 0.999) {
                             var innerStart = innerR - (innerShift||0)
-                            ctx.moveTo(innerStart, -baseHalf)
+                            // Start górą prostego odcinka, potem do taperX
+                            ctx.moveTo(innerStart + (markerRoundBase ? 0 : 0), -baseHalf)
                             ctx.lineTo(taperX, -baseHalf)
                             var tipLen = outerR - taperX
                             if (tipLen < 2) {
@@ -319,6 +347,10 @@ Item {
                                 ctx.quadraticCurveTo(ctrlX, ctrlYOffset, taperX, baseHalf)
                             }
                             ctx.lineTo(innerStart, baseHalf)
+                            if (root.markerRoundBase) {
+                                // półkole przesunięte do środka (powiększa długość o baseHalf do wewnątrz)
+                                ctx.arc(innerStart - baseHalf, 0, baseHalf, Math.PI/2, -Math.PI/2, true)
+                            }
                         } else {
                             if (root.markerSharpTip) {
                                 var cf2 = Math.max(0, Math.min(1, root.markerTipCurveFactor))
@@ -327,12 +359,18 @@ Item {
                                 ctx.moveTo(innerStart2, -baseHalf)
                                 ctx.quadraticCurveTo(ctrlX2, -baseHalf*0.9, outerR, 0)
                 ctx.quadraticCurveTo(ctrlX2, baseHalf*0.9, innerStart2, baseHalf)
+                                if (root.markerRoundBase) {
+                                    ctx.arc(innerStart2 - baseHalf, 0, baseHalf, Math.PI/2, -Math.PI/2, true)
+                                }
                             } else {
                 var innerStart3 = innerR - (innerShift||0)
                 ctx.moveTo(innerStart3, -baseHalf)
                 ctx.lineTo(outerR, -baseHalf)
                 ctx.lineTo(outerR, baseHalf)
                 ctx.lineTo(innerStart3, baseHalf)
+                if (root.markerRoundBase) {
+                    ctx.arc(innerStart3 - baseHalf, 0, baseHalf, Math.PI/2, -Math.PI/2, true)
+                }
                             }
                         }
                         ctx.closePath()
@@ -364,6 +402,26 @@ Item {
                             ctx.fill()
                         }
                         ctx.globalAlpha = 1.0
+                        // Wewnętrzne białe halo (rysujemy po czerwonym aby biały "rdzeń rozmyty" przykrył środek)
+                        if (root.markerInnerWhiteGlow) {
+                            var passesW = Math.max(1, root.markerInnerGlowPasses)
+                            for (var wp = passesW; wp >= 1; wp--) {
+                                var wOuterFrac = wp / passesW
+                                var wExpansion = root.markerInnerGlowSpreadPx * wOuterFrac
+                                var wInnerFrac = 1 - wOuterFrac
+                                var wAlphaFrac = Math.pow(wInnerFrac, root.markerInnerGlowFalloffPower)
+                                if (wAlphaFrac <= 0) continue
+                                var wInward = wExpansion * root.markerInnerGlowInwardFactor + root.markerInnerGlowExtraInward
+                                var savedBaseW = baseHalf
+                                baseHalf = savedBaseW + wExpansion
+                                buildPointerPath(wInward)
+                                baseHalf = savedBaseW
+                                ctx.fillStyle = root.markerInnerGlowColor
+                                ctx.globalAlpha = root.markerInnerGlowMaxAlpha * wAlphaFrac
+                                ctx.fill()
+                            }
+                            ctx.globalAlpha = 1.0
+                        }
                     }
                     // Rdzeń biały
                     buildPointerPath(0)
