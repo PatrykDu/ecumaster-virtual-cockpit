@@ -42,6 +42,10 @@ Item {
 
     // Optional smoothing mode for high-jitter sources (set per instance)
     property bool smoothNeedle: false
+    // Toggle between classic needle and sweep arc
+    property bool showNeedle: true
+    property color valueArcColor: needleColor
+    property real valueArcThickness: Math.min(ringWidth * 0.65, 20)
 
     property color needleColor: '#ff3333'
     property real needleTipInset: 14       // distance from outer radius to needle tip
@@ -62,8 +66,8 @@ Item {
     onNeedleTipInsetChanged: needleCanvas.requestPaint()
     onNeedleTailChanged: needleCanvas.requestPaint()
     onNeedleThicknessChanged: needleCanvas.requestPaint()
-    onRedFromChanged: scaleCanvas.requestPaint()
-    onRedToChanged: scaleCanvas.requestPaint()
+    onRedFromChanged: { scaleCanvas.requestPaint(); if (!showNeedle) valueArc.requestPaint() }
+    onRedToChanged: { scaleCanvas.requestPaint(); if (!showNeedle) valueArc.requestPaint() }
     onWarnFromChanged: scaleCanvas.requestPaint()
     onWarnToChanged: scaleCanvas.requestPaint()
 
@@ -186,61 +190,88 @@ Item {
     }
 
     // NEEDLE (simplified red line pointer with optional smoothing)
-    Item {
-        id: needle
-        width: root.width
-        height: root.height
-        property real targetAngle: {
-            var frac = (root.value - root.min)/(root.max - root.min)
-            if (frac < 0) frac = 0
-            if (frac > 1) frac = 1
-            return (root.startAngle + frac*(root.endAngle-root.startAngle))
-        }
-        property real currentAngle: 0
-        // Step animation (enabled when NOT smoothing)
-        Behavior on currentAngle { enabled: !root.smoothNeedle; NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
-        // SmoothedAnimation driven manually for stability
-        SmoothedAnimation { id: smoothAnim; target: needle; property: "currentAngle"; velocity: 2200; running: false }
-        onTargetAngleChanged: {
-            if (root.smoothNeedle) {
-                smoothAnim.stop();
-                smoothAnim.to = targetAngle;
-                smoothAnim.running = true;
-            } else {
-                currentAngle = targetAngle;
+    Loader {
+        id: needleLoader
+        active: root.showNeedle
+        sourceComponent: Component {
+            Item {
+                id: needle
+                width: root.width
+                height: root.height
+                property real targetAngle: {
+                    var frac = (root.value - root.min)/(root.max - root.min)
+                    if (frac < 0) frac = 0
+                    if (frac > 1) frac = 1
+                    return (root.startAngle + frac*(root.endAngle-root.startAngle))
+                }
+                property real currentAngle: 0
+                Behavior on currentAngle { enabled: !root.smoothNeedle; NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
+                SmoothedAnimation { id: smoothAnim; target: needle; property: "currentAngle"; velocity: 2200; running: false }
+                onTargetAngleChanged: {
+                    if (root.smoothNeedle) {
+                        smoothAnim.stop();
+                        smoothAnim.to = targetAngle;
+                        smoothAnim.running = true;
+                    } else {
+                        currentAngle = targetAngle;
+                    }
+                }
+                onCurrentAngleChanged: needleCanvas.requestPaint()
+                property real lineWidth: Math.max(2, root.needleThickness * 0.22)
+                property real hubRadius: lineWidth * 2.2
+                Canvas {
+                    id: needleCanvas
+                    anchors.fill: parent
+                    onPaint: {
+                        var ctx = getContext('2d')
+                        ctx.reset()
+                        var cx = width/2
+                        var cy = height/2
+                        ctx.translate(cx, cy)
+                        var ang = (needle.currentAngle + root.orientationOffset) * Math.PI/180.0
+                        var tip = root.radius - root.needleTipInset
+                        ctx.save(); ctx.rotate(ang)
+                        ctx.lineCap = 'round'
+                        ctx.strokeStyle = root.needleColor
+                        ctx.lineWidth = needle.lineWidth
+                        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(tip,0); ctx.stroke(); ctx.restore()
+                        ctx.fillStyle = '#222'
+                        ctx.beginPath(); ctx.arc(0,0, needle.hubRadius, 0, Math.PI*2); ctx.fill()
+                        ctx.strokeStyle = root.needleColor
+                        ctx.lineWidth = 1
+                        ctx.beginPath(); ctx.arc(0,0, needle.hubRadius*0.65, 0, Math.PI*2); ctx.stroke()
+                    }
+                    Component.onCompleted: requestPaint()
+                }
             }
-        }
-        onCurrentAngleChanged: needleCanvas.requestPaint()
-        property real lineWidth: Math.max(2, root.needleThickness * 0.22)
-        property real hubRadius: lineWidth * 2.2
-        Canvas {
-            id: needleCanvas
-            anchors.fill: parent
-            onPaint: {
-                var ctx = getContext('2d')
-                ctx.reset()
-                var cx = width/2
-                var cy = height/2
-                ctx.translate(cx, cy)
-                var ang = (needle.currentAngle + root.orientationOffset) * Math.PI/180.0
-                var tip = root.radius - root.needleTipInset
-                ctx.save()
-                ctx.rotate(ang)
-                ctx.lineCap = 'round'
-                ctx.strokeStyle = root.needleColor
-                ctx.lineWidth = needle.lineWidth
-                ctx.beginPath()
-                ctx.moveTo(0,0)
-                ctx.lineTo(tip,0)
-                ctx.stroke()
-                ctx.restore()
-                ctx.fillStyle = '#222'
-                ctx.beginPath(); ctx.arc(0,0, needle.hubRadius, 0, Math.PI*2); ctx.fill()
-                ctx.strokeStyle = root.needleColor
-                ctx.lineWidth = 1
-                ctx.beginPath(); ctx.arc(0,0, needle.hubRadius*0.65, 0, Math.PI*2); ctx.stroke()
-            }
-            Component.onCompleted: requestPaint()
         }
     }
+
+    // VALUE SWEEP ARC (used when showNeedle == false)
+    Canvas {
+        id: valueArc
+        anchors.fill: parent
+        visible: !root.showNeedle
+        onPaint: {
+            var ctx = getContext('2d'); ctx.reset()
+            var cx = width/2, cy = height/2; ctx.translate(cx, cy)
+            var frac = (root.value - root.min)/(root.max - root.min)
+            if (frac < 0) frac = 0; if (frac > 1) frac = 1
+            var startA = (root.startAngle + root.orientationOffset) * Math.PI/180.0
+            var endA = (root.startAngle + frac*(root.endAngle-root.startAngle) + root.orientationOffset) * Math.PI/180.0
+            var arcRadius = root.radius - root.ringWidth/2
+            ctx.lineWidth = root.valueArcThickness
+            var inRed = root.value >= root.redFrom
+            ctx.strokeStyle = inRed ? root.redlineColor : root.valueArcColor
+            ctx.lineCap = 'round'
+            ctx.beginPath(); ctx.arc(0,0, arcRadius, startA, endA, false); ctx.stroke()
+        }
+        Component.onCompleted: if (!root.showNeedle) requestPaint()
+    }
+
+    // Update sweep arc when value changes
+    onValueChanged: if (!showNeedle) valueArc.requestPaint()
+    onStartAngleChanged: if (!showNeedle) valueArc.requestPaint()
+    onEndAngleChanged: if (!showNeedle) valueArc.requestPaint()
+    // (redFrom handled above with scale repaint)
 }

@@ -315,6 +315,7 @@ Window {
                 value: TEL.rpm
                 max: 7000
                 min: 0
+                showNeedle: false  // use sweep arc instead of needle
                 redFrom: 5994
                 redTo: 7000
                 label: "" // hide label here
