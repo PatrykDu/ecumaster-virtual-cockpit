@@ -582,6 +582,9 @@ Item {
                 if (root.currentSubmenu === 'suspension' && root.wheelEditIndex >= 0) {
                     adjustWheel(+1);
                         return;
+                    } else if (root.currentSubmenu === 'exhaust') {
+                        toggleExhaust();
+                        return;
                     } else if (root.currentSubmenu === 'settings') {
                         settingsIndex = (settingsIndex - 1 + settingsItems.length) % settingsItems.length;
                         submenuInactivityTimer.restart();
@@ -600,6 +603,9 @@ Item {
             if (root.inSubmenu) {
                 if (root.currentSubmenu === 'suspension' && root.wheelEditIndex >= 0) {
                     adjustWheel(-1);
+                        return;
+                    } else if (root.currentSubmenu === 'exhaust') {
+                        toggleExhaust();
                         return;
                     } else if (root.currentSubmenu === 'settings') {
                         settingsIndex = (settingsIndex + 1) % settingsItems.length;
