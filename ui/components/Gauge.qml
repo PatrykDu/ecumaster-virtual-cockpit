@@ -73,6 +73,8 @@ Item {
     property real markerTipCurveFactor: 0.55       // 0..1 jak bardzo zaokrąglone boki czubka (0=ostry trójkąt, 0.5..0.7=łagodny)
     property bool markerGlowClip: true             // przycina poświatę aby nie wychodziła poza długość markera
     property real markerGlowFalloffPower: 1.4      // kształt zaniku (większe = szybsze wygaszanie na zewnątrz)
+    property real markerGlowInwardFactor: 1.25     // mnożnik jak daleko halo wchodzi do środka względem expansion
+    property real markerGlowExtraInward: 6         // stały dodatkowy pikselowy zasięg do środka niezależny od expansion
 
     property color needleColor: '#ff3333'
     property real needleTipInset: 14       // distance from outer radius to needle tip
@@ -297,10 +299,12 @@ Item {
                     if (taperFrac < 0.05) taperFrac = 0.05
                     if (taperFrac > 0.95) taperFrac = 0.95
                     var taperX = innerR + (outerR - innerR) * taperFrac
-                    function buildPointerPath() {
+                    function buildPointerPath(innerShift) {
+                        // innerShift (>=0) allows glow to extend further inward than white core
                         ctx.beginPath()
                         if (taperFrac < 0.999) {
-                            ctx.moveTo(innerR, -baseHalf)
+                            var innerStart = innerR - (innerShift||0)
+                            ctx.moveTo(innerStart, -baseHalf)
                             ctx.lineTo(taperX, -baseHalf)
                             var tipLen = outerR - taperX
                             if (tipLen < 2) {
@@ -314,19 +318,21 @@ Item {
                                 ctx.quadraticCurveTo(ctrlX, -ctrlYOffset, outerR, 0)
                                 ctx.quadraticCurveTo(ctrlX, ctrlYOffset, taperX, baseHalf)
                             }
-                            ctx.lineTo(innerR, baseHalf)
+                            ctx.lineTo(innerStart, baseHalf)
                         } else {
                             if (root.markerSharpTip) {
                                 var cf2 = Math.max(0, Math.min(1, root.markerTipCurveFactor))
                                 var ctrlX2 = innerR + (outerR - innerR) * cf2
-                                ctx.moveTo(innerR, -baseHalf)
+                                var innerStart2 = innerR - (innerShift||0)
+                                ctx.moveTo(innerStart2, -baseHalf)
                                 ctx.quadraticCurveTo(ctrlX2, -baseHalf*0.9, outerR, 0)
-                                ctx.quadraticCurveTo(ctrlX2, baseHalf*0.9, innerR, baseHalf)
+                ctx.quadraticCurveTo(ctrlX2, baseHalf*0.9, innerStart2, baseHalf)
                             } else {
-                                ctx.moveTo(innerR, -baseHalf)
-                                ctx.lineTo(outerR, -baseHalf)
-                                ctx.lineTo(outerR, baseHalf)
-                                ctx.lineTo(innerR, baseHalf)
+                var innerStart3 = innerR - (innerShift||0)
+                ctx.moveTo(innerStart3, -baseHalf)
+                ctx.lineTo(outerR, -baseHalf)
+                ctx.lineTo(outerR, baseHalf)
+                ctx.lineTo(innerStart3, baseHalf)
                             }
                         }
                         ctx.closePath()
@@ -334,7 +340,7 @@ Item {
                     function buildPointerPathWithHalf(h) {
                         var savedBase = baseHalf
                         baseHalf = h
-                        buildPointerPath()
+            buildPointerPath(0)
                         baseHalf = savedBase
                     }
                     // Poświata wypełniana poszerzonymi kształtami (dopasowana do czubka)
@@ -347,7 +353,12 @@ Item {
                             var innerFrac = 1 - outerFrac        // 0 przy zewnętrznej, ~1 przy wewnętrznej
                             var alphaFrac = Math.pow(innerFrac, root.markerGlowFalloffPower)
                             if (alphaFrac <= 0) continue
-                            buildPointerPathWithHalf(baseHalf + expansion)
+                            // Also expand inward by same expansion * 0.6 to get halo inside
+                            var inward = expansion * root.markerGlowInwardFactor + root.markerGlowExtraInward
+                            var savedBase2 = baseHalf
+                            baseHalf = savedBase2 + expansion
+                            buildPointerPath(inward)
+                            baseHalf = savedBase2
                             ctx.fillStyle = root.markerGlowColor
                             ctx.globalAlpha = root.markerGlowMaxAlpha * alphaFrac
                             ctx.fill()
@@ -355,7 +366,7 @@ Item {
                         ctx.globalAlpha = 1.0
                     }
                     // Rdzeń biały
-                    buildPointerPath()
+                    buildPointerPath(0)
                     ctx.fillStyle = root.markerCoreColor
                     ctx.fill()
                     // Cienka linia wewnętrzna

@@ -320,10 +320,12 @@ Window {
                 markerSharpTip: true
                 markerGlow: true
                 // Szersze, wyraźniejsze halo
-                markerGlowPasses: 9
+                markerGlowPasses: 10
                 markerGlowMaxAlpha: 0.30
-                markerGlowSpreadPx: 18
-                markerGlowFalloffPower: 1.2  // wolniejsze wygaszanie dla mocniejszego wewnętrznego żaru
+                markerGlowSpreadPx: 24        // szersze halo na zewnątrz
+                markerGlowFalloffPower: 1.25  // balans intensywności
+                markerGlowInwardFactor: 1.55  // mocniejsze wejście do środka
+                markerGlowExtraInward: 10
                 markerWidth: width * 0.010   // zwężona biała część (połowa wcześniejszej szerokości)
                 // Skrócenie markera: przesuwamy początek dalej od środka i lekko cofamy czubek
                 markerInnerRadius: radius * 0.68   // przesunięty dalej od środka żeby nie podchodził pod wewnętrzne koło

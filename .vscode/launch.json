@@ -10,7 +10,7 @@
       "justMyCode": true,
       "env": {
         "TEENSY_DEV": "/dev/ttyACM0",
-        "DEVELOP_MODE": "2",
+        "DEVELOP_MODE": "1",
       }
     }
   ]
