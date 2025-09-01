@@ -1,5 +1,5 @@
 from __future__ import annotations
-import os, sys, json
+import os, sys, json, time
 
 # PATH SETUP
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
@@ -7,7 +7,7 @@ if PROJECT_ROOT not in sys.path: sys.path.insert(0, PROJECT_ROOT)
 
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
-from PySide6.QtCore import Qt, QUrl, qInstallMessageHandler, QtMsgType, QLibraryInfo
+from PySide6.QtCore import Qt, QUrl, qInstallMessageHandler, QtMsgType, QLibraryInfo, QTimer
 
 import config
 from telemetry import Telemetry
@@ -74,13 +74,25 @@ def _choose_platform_for_prod():
 
 def main():  # MAIN
     # Determine mode early
-    dev_mode = os.environ.get("DEVELOP_MODE", "").lower() in ("1","true","yes","on")
-    if dev_mode:
-        # Dev: leave previous simple behaviour intact
-        os.environ.setdefault("QML_XHR_ALLOW_FILE_READ", "1")
-        os.environ.setdefault("QT_QUICK_BACKEND", "software")  # keep legacy path if you liked current look
+    dev_env_raw = os.environ.get("DEVELOP_MODE", "").strip().lower()
+    # Map to int mode: 0 = production, 1 = desktop dev, 2 = forced demo (Pi demo without Teensy)
+    if dev_env_raw in ("1","true","yes","on"):
+        dev_mode_int = 1
+    elif dev_env_raw == "2":
+        dev_mode_int = 2
     else:
-        print("[MODE] Production startup -> platform auto-selection")
+        dev_mode_int = 0
+
+    if dev_mode_int == 1:
+        print("[MODE] DEVELOP_MODE=1 (desktop dev)")
+        os.environ.setdefault("QML_XHR_ALLOW_FILE_READ", "1")
+        os.environ.setdefault("QT_QUICK_BACKEND", "software")  # keep legacy path look if desired
+    elif dev_mode_int == 2:
+        print("[MODE] DEVELOP_MODE=2 (demo mode – synthetic data, fullscreen)")
+        os.environ.setdefault("QML_XHR_ALLOW_FILE_READ", "1")
+        _choose_platform_for_prod()  # still pick proper fb backend on Pi
+    else:
+        print("[MODE] Production (wait for Teensy, no demo fallback)")
         os.environ.setdefault("QML_XHR_ALLOW_FILE_READ", "1")
         _choose_platform_for_prod()
     app = QGuiApplication(sys.argv)
@@ -96,7 +108,8 @@ def main():  # MAIN
     engine.rootContext().setContextProperty("DESIGN_HEIGHT", getattr(config, 'DESIGN_HEIGHT', config.HEIGHT))
     engine.rootContext().setContextProperty("SCALE", getattr(config, 'SCALE', 1.0))
     engine.rootContext().setContextProperty("TEL", tel)
-    engine.rootContext().setContextProperty("DEV_MODE", dev_mode)
+    engine.rootContext().setContextProperty("DEV_MODE", dev_mode_int == 1)  # legacy boolean usage
+    engine.rootContext().setContextProperty("DEV_MODE_INT", dev_mode_int)
 
     # QML PATH
     qml_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ui', 'Main.qml'))
@@ -137,19 +150,32 @@ def main():  # MAIN
         pass
 
     # MODE
-    if dev_mode:
+    if dev_mode_int == 1:
         win.setFlags(Qt.Window)
         win.show()
-    else:
+    else:  # production & demo (2) fullscreen
         win.setFlags(Qt.FramelessWindowHint | Qt.Window)
         win.showFullScreen()
 
-    if dev_mode:  # DEV PANEL
+    if dev_mode_int == 1:  # DEV PANEL only for desktop dev
         dev_qml = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ui', 'DevPanel.qml'))
         if os.path.isfile(dev_qml):
             engine.load(QUrl.fromLocalFile(dev_qml))
+    # Start data source
+    if dev_mode_int == 2:
+        # Internal demo timer (no Teensy code path)
+        start_t = time.time()
+        demo_timer = QTimer()
+        demo_timer.setInterval(16)
+        def _demo_tick():
+            t = time.time() - start_t
+            tel.demoTick(t)
+        demo_timer.timeout.connect(_demo_tick)
+        demo_timer.start()
+        print("[DEMO] Running synthetic data (DEVELOP_MODE=2)")
     else:
-        io_teensy.start(tel)
+        # Serial only (no automatic demo fallback)
+        io_teensy.start_serial(tel)
 
     return app.exec()
 
