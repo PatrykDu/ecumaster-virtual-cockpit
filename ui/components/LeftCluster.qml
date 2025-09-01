@@ -18,14 +18,13 @@ Item {
     property var menuItems: ["suspension", "exhaust", "reset trip", "settings"]
     property int menuIndex: 0
     property bool menuActive: false
-    property int inactivityMs: 5000
-    property int submenuInactivityMs: 5000
+    property int inactivityMs: 12000  // unified inactivity timeout (ms) for both main menu and submenus
     property bool _suspensionAutoExit: false
     property bool _exhaustAutoExit: false
         
-        property bool _settingsAutoExit: false
-        property var settingsItems: ["idle timer", "brightness", "speedo", "logs"]
-        property int settingsIndex: 0
+    property bool _settingsAutoExit: false
+    property var settingsItems: ["time", "brightness", "speedo", "logs"]
+    property int settingsIndex: 0
     property int wheelEditIndex: -1
     property var windowRoot: null
     property int wheelMin: 1
@@ -385,7 +384,7 @@ Item {
     
     Timer {
         id: submenuInactivityTimer
-        interval: root.submenuInactivityMs
+        interval: root.inactivityMs
         repeat: false
         running: false
         onTriggered: {
@@ -579,14 +578,24 @@ Item {
         target: TEL
         function onNavUpEvent() {
             if (root.inSubmenu) {
-                if (root.currentSubmenu === 'suspension' && root.wheelEditIndex >= 0) {
-                    adjustWheel(+1);
-                        return;
-                    } else if (root.currentSubmenu === 'settings') {
-                        settingsIndex = (settingsIndex - 1 + settingsItems.length) % settingsItems.length;
+                if (root.currentSubmenu === 'suspension') {
+                    if (root.wheelEditIndex >= 0) {
+                        adjustWheel(+1);
+                    } else {
+                        // enter edit mode on first wheel instead of moving main menu
+                        root.wheelEditIndex = 0;
                         submenuInactivityTimer.restart();
-                        return;
+                    }
+                    return; // never fall through to main menu while in submenu
+                } else if (root.currentSubmenu === 'exhaust') {
+                    toggleExhaust();
+                    return;
+                } else if (root.currentSubmenu === 'settings') {
+                    settingsIndex = (settingsIndex - 1 + settingsItems.length) % settingsItems.length;
+                    submenuInactivityTimer.restart();
+                    return;
                 }
+                return; // safety
             }
             if (!root.menuActive) {
                 root.menuActive = true;
@@ -598,14 +607,23 @@ Item {
         }
         function onNavDownEvent() {
             if (root.inSubmenu) {
-                if (root.currentSubmenu === 'suspension' && root.wheelEditIndex >= 0) {
-                    adjustWheel(-1);
-                        return;
-                    } else if (root.currentSubmenu === 'settings') {
-                        settingsIndex = (settingsIndex + 1) % settingsItems.length;
+                if (root.currentSubmenu === 'suspension') {
+                    if (root.wheelEditIndex >= 0) {
+                        adjustWheel(-1);
+                    } else {
+                        root.wheelEditIndex = 0; // start editing on first wheel
                         submenuInactivityTimer.restart();
-                        return;
+                    }
+                    return; // block main menu movement
+                } else if (root.currentSubmenu === 'exhaust') {
+                    toggleExhaust();
+                    return;
+                } else if (root.currentSubmenu === 'settings') {
+                    settingsIndex = (settingsIndex + 1) % settingsItems.length;
+                    submenuInactivityTimer.restart();
+                    return;
                 }
+                return; // safety
             }
             if (!root.menuActive) {
                 root.menuActive = true;

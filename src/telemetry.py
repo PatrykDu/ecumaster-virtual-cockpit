@@ -381,83 +381,69 @@ class Telemetry(QObject):
                 self.firstFrameReceived.emit()
 
     def demoTick(self, t: float):
-        # DEMO FULL STATE (simulate everything adjustable in DevPanel except nav arrows)
-        # RPM/SPEED triangle wave (fast)
-        base_period = 6.0
-        phase = (t % base_period) / base_period  # 0..1
-        if phase < 0.5:
-            frac = phase * 2.0
-        else:
-            frac = 2.0 - phase * 2.0
-        rpm = int(frac * 7800)  # cap near redline
-        speed = frac * 230.0
+        # Unified demo with two modes: full-span (DEVELOP_MODE=2) and legacy (else)
+        def tri(time_s: float, period: float) -> float:
+            ph = (time_s % period) / period
+            return ph * 2.0 if ph < 0.5 else 2.0 - ph * 2.0
+        rpm_frac = tri(t, 6.0)
+        # RPM limited to 0-7000 for demo (was 7800)
+        rpm = int(rpm_frac * 7000)
+        speed = rpm_frac * 230.0
+        fuel_val = int(tri(t, 22.0) * 100)
 
-        # Fuel slower saw/triangle (0..100)
-        fuel_period = 22.0
-        f_phase = (t % fuel_period) / fuel_period
-        if f_phase < 0.5:
-            fuel_frac = f_phase * 2.0
+        if os.environ.get("DEVELOP_MODE") == "2":
+            water_temp = int(40 + tri(t * 0.85, 14.0) * (140 - 40))
+            # Oil temp limited to 29-81°C in demo mode 2
+            oil_temp   = int(29 + tri(t * 0.80 + 1.3, 15.0) * (81 - 29))
+            charging_volt = 11.0 + tri(t * 0.95, 11.0) * 5.0
+            oil_press = tri(t * 1.10, 7.5) * 8.0
+            afr_val = 10.0 + tri(t * 0.75 + 0.4, 13.0) * 8.0
         else:
-            fuel_frac = 2.0 - f_phase * 2.0
-        fuel_val = int(fuel_frac * 100)
+            w_frac = tri(t, 30.0)
+            water_temp = int(60 + w_frac * 90)
+            oil_temp = int(50 + w_frac * 95)
+            afr_val = 14.7 + math.sin(t * 0.8) * 0.6
+            if int(t) % 7 == 0:
+                afr_val -= 2.0 * max(0.0, 0.5 - ((t % 7) * 0.5))
+            charging_volt = 14.25 + math.sin(t * 0.35) * 0.25
+            if int(t) % 19 == 0:
+                charging_volt += 0.6 * math.sin(t * 3.0)
+            if int(t) % 23 == 0:
+                charging_volt -= 0.8 * math.sin(t * 4.0)
+            oil_press = max(0.0, min(8.0, 1.0 + (rpm / 7000.0) * 5.5 + math.sin(t * 1.1) * 0.4))
 
-        # Temps derived with slight lag / scaling
-        water_period = 30.0
-        w_phase = (t % water_period) / water_period
-        if w_phase < 0.5:
-            w_frac = w_phase * 2.0
-        else:
-            w_frac = 2.0 - w_phase * 2.0
-        water_temp = int(60 + w_frac * 90)  # 60..150
-        oil_temp = int(50 + w_frac * 95)    # 50..145
-
-        # Indicators / lights patterns
         blink_left = int((t * 1.5) % 2) == 0
         blink_right = not blink_left
-        high_beam = rpm > 6000  # same logic as before
+        high_beam = rpm > 6000
         park = int((t / 10) % 2) == 0
-        check_engine = int((t / 15) % 30) == 0  # brief flash every 15s
-        low_beam = True  # keep on for demo
+        check_engine = int((t / 15) % 30) == 0
+        low_beam = True
         fog_rear = int((t / 5) % 2) == 0
-        underglow = int((t * 0.5) % 2) == 0  # slow pulse
+        underglow = int((t * 0.5) % 2) == 0
 
-        # Pack flags: bits0..4 booleans, bits5-12 fuel (8 bits)
-        # bit0 leftBlink, bit1 rightBlink, bit2 highBeam, bit3 park, bits4-11 fuel
-        flags = (
-            (1 if blink_left else 0) |
-            ((1 if blink_right else 0) << 1) |
-            ((1 if high_beam else 0) << 2) |
-            ((1 if park else 0) << 3) |
-            ((fuel_val & 0xFF) << 4)
-        )
-
-        self.updateFromFrame(rpm, speed, flags)
-        # Override temps + check engine each tick (not in frame spec)
+        # Direct property update path (match other telemetry props; avoid updateFromFrame)
+        self.setRpm(rpm)
+        self.setSpeed(speed)
+        self.setLeftBlink(blink_left)
+        self.setRightBlink(blink_right)
+        self.setHighBeam(high_beam)
+        self.setPark(park)
+        self.setFuel(fuel_val)
         self.setWaterTemp(water_temp)
         self.setOilTemp(oil_temp)
         self.setCheckEngine(check_engine)
         self.setLowBeam(low_beam)
         self.setFogRear(fog_rear)
         self.setUnderglow(underglow)
-        # Demo patterns for new indicators (simple periodic toggles)
         self.setCharging(int((t / 7) % 2) == 0 and rpm > 2500)
         self.setAbs(int((t / 11) % 3) == 0 and speed > 80)
         self.setWheelPressure(int((t / 9) % 2) == 0 and fuel_val < 30)
-        # AFR oscillation: center 14.4..15.0 with occasional rich dip
-        afr_base = 14.7 + math.sin(t * 0.8) * 0.6  # 14.1..15.3
-        if int(t) % 7 == 0:  # brief rich event
-            afr_base -= 2.0 * max(0.0, 0.5 - ((t % 7) * 0.5))  # quick dip
-        self.setAfr(afr_base)
-        # Charging voltage slight ripple 14.0..14.5 with occasional dips/spikes
-        volt = 14.25 + math.sin(t * 0.35) * 0.25
-        if int(t) % 19 == 0:
-            volt += 0.6 * math.sin(t * 3.0)  # brief spike ripple
-        if int(t) % 23 == 0:
-            volt -= 0.8 * math.sin(t * 4.0)  # brief dip ripple
-        self.setChargingVolt(volt)
-        # Oil pressure simulated: rises with rpm, small noise
-        press = max(0.0, min(8.0, 1.0 + (self._rpm / 7000.0) * 5.5 + math.sin(t * 1.1) * 0.4))
-        self.setOilPressure(press)
+        self.setAfr(afr_val)
+        self.setChargingVolt(charging_volt)
+        self.setOilPressure(oil_press)
+        if not self._got_first:
+            self._got_first = True
+            self.firstFrameReceived.emit()
 
     # PERSISTENCE
     @Slot(int, int, int, int)
