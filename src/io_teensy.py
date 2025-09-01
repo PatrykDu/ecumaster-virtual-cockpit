@@ -1,6 +1,7 @@
 from __future__ import annotations
 import os, struct, threading, time, sys
 import crcmod, serial  # type: ignore
+from PySide6.QtCore import QTimer
 from telemetry import Telemetry
 import config
 
@@ -22,9 +23,8 @@ class TeensyReader(threading.Thread):  # READER THREAD
             self.port = serial.Serial(dev, config.BAUD, timeout=0.05)
             print(f"[io_teensy] Opened serial {dev} @ {config.BAUD}")
         except Exception as e:
-            print(f"[io_teensy] Serial open failed ({e}); switching to DEMO")
+            print(f"[io_teensy] Serial open failed ({e})")
             self.port = None
-            self.demo = True
 
     def run(self):
         if not self.demo:
@@ -79,16 +79,47 @@ class TeensyReader(threading.Thread):  # READER THREAD
             self.telemetry.updateFromFrame(int(rpm), float(speed_kmh), int(flags))
 
     def _demo_loop(self):
-    # DEMO
+        # Legacy thread-based demo (kept for fallback if serial disconnects after start)
         now = time.time()
         t = now - self.last_demo_t0
         self.telemetry.demoTick(t)
         time.sleep(1/60.0)
 
 
+_demo_timer = None
+_demo_start_t = None
+
+def _start_demo_gui(telemetry: Telemetry):
+    global _demo_timer, _demo_start_t
+    if _demo_timer:
+        return _demo_timer
+    _demo_start_t = time.time()
+    _demo_timer = QTimer()
+    _demo_timer.setInterval(16)  # ~60 FPS
+    def tick():
+        try:
+            t = time.time() - _demo_start_t
+            telemetry.demoTick(t)
+        except Exception as e:
+            print(f"[io_teensy][demoTimer] error: {e}")
+    _demo_timer.timeout.connect(tick)
+    _demo_timer.start()
+    print("[io_teensy] GUI demo timer started (60 FPS)")
+    return _demo_timer
+
 def start(telemetry: Telemetry):  # START
-    demo = config.DEMO_FALLBACK
-    reader = TeensyReader(telemetry, demo)
+    # Attempt serial first unless forced demo via config
+    if config.DEMO_FALLBACK:
+        print("[io_teensy] DEMO_FALLBACK=True -> GUI demo mode")
+        _start_demo_gui(telemetry)
+        return None
+    reader = TeensyReader(telemetry, demo=False)
+    reader.open_serial()
+    if reader.port is None:
+        print("[io_teensy] No serial -> GUI demo mode")
+        _start_demo_gui(telemetry)
+        return None
+    print("[io_teensy] Starting serial reader thread")
     reader.start()
     return reader
 
