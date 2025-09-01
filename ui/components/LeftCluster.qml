@@ -18,14 +18,13 @@ Item {
     property var menuItems: ["suspension", "exhaust", "reset trip", "settings"]
     property int menuIndex: 0
     property bool menuActive: false
-    property int inactivityMs: 5000
-    property int submenuInactivityMs: 5000
+    property int inactivityMs: 12000  // unified inactivity timeout (ms) for both main menu and submenus
     property bool _suspensionAutoExit: false
     property bool _exhaustAutoExit: false
         
-        property bool _settingsAutoExit: false
-        property var settingsItems: ["idle timer", "brightness", "speedo", "logs"]
-        property int settingsIndex: 0
+    property bool _settingsAutoExit: false
+    property var settingsItems: ["time", "brightness", "speedo", "logs"]
+    property int settingsIndex: 0
     property int wheelEditIndex: -1
     property var windowRoot: null
     property int wheelMin: 1
@@ -385,7 +384,7 @@ Item {
     
     Timer {
         id: submenuInactivityTimer
-        interval: root.submenuInactivityMs
+        interval: root.inactivityMs
         repeat: false
         running: false
         onTriggered: {
