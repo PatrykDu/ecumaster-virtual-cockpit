@@ -40,6 +40,36 @@ Item {
     property bool drawCanvasLabels: true
     property bool useTextLabels: false
 
+    // Optional inner progress arc (biały pasek rosnący od 0 do value)
+    property bool showInnerProgress: false
+    property color innerProgressColor: 'white'
+    // Thickness and radius (tunable per gauge); defaults relative to ringWidth and radius
+    property real innerProgressWidth: ringWidth * 0.33
+    // Position deeper inside tarczy (0.0..radius); by default ~3/4 w głąb pierścienia
+    property real innerProgressRadius: radius - ringWidth * 1.10
+    property bool innerProgressRoundCap: true
+    // Glow parameters (domyślnie korzystają z marker* jeśli nie nadpisane)
+    property bool innerProgressGlow: true
+    property bool innerProgressWhiteGlow: true
+    property real innerProgressGlowSpreadPx: markerGlowSpreadPx * 0.85
+    property int innerProgressGlowPasses: markerGlowPasses
+    property real innerProgressGlowMaxAlpha: markerGlowMaxAlpha * 1.15
+    property real innerProgressGlowFalloffPower: markerGlowFalloffPower
+    property real innerProgressWhiteGlowSpreadPx: markerInnerGlowSpreadPx * 0.90
+    property int innerProgressWhiteGlowPasses: markerInnerGlowPasses
+    property real innerProgressWhiteGlowMaxAlpha: markerInnerGlowMaxAlpha * 1.05
+    property real innerProgressWhiteGlowFalloffPower: markerInnerGlowFalloffPower
+    // Kompozycja addytywna dla glows (lighter = bardziej świetlisty). Wyłącz jeśli GPU zachowuje się źle.
+    property bool innerProgressAdditive: true
+
+    // Dynamic zone-based colors (white -> warnColor -> redlineColor)
+    // Używane tylko dla białych elementów (rdzeń + białe halo) markera i inner progress
+    property color markerCoreEffectiveColor: (value >= redFrom ? redlineColor : (warnFrom >= 0 && value >= warnFrom && value <= warnTo ? warnColor : markerCoreColor))
+    property color markerInnerGlowEffectiveColor: (value >= redFrom ? redlineColor : (warnFrom >= 0 && value >= warnFrom && value <= warnTo ? warnColor : markerInnerGlowColor))
+    // Inner progress korzysta z tych samych reguł
+    property color innerProgressCoreEffectiveColor: markerCoreEffectiveColor
+    property color innerProgressWhiteGlowEffectiveColor: markerInnerGlowEffectiveColor
+
     // Optional smoothing mode for high-jitter sources (set per instance)
     property bool smoothNeedle: false
     // Separate smoothing for marker (when showNeedle == false)
@@ -121,6 +151,7 @@ Item {
     onRedToChanged: { scaleCanvas.requestPaint(); if (!showNeedle) markerCanvas.requestPaint() }
     onWarnFromChanged: scaleCanvas.requestPaint()
     onWarnToChanged: scaleCanvas.requestPaint()
+    // Inner progress repaint handlers merged with bottom section to avoid duplicates
 
     // SCALE CANVAS
     Canvas {
@@ -192,6 +223,72 @@ Item {
                 }
                 ctx.stroke(); ctx.restore()
             }
+        }
+    }
+
+    // INNER PROGRESS ARC (drawn above background arc, below ticks/needle overlay)
+    Canvas {
+        id: innerProgressCanvas
+        anchors.fill: parent
+        visible: root.showInnerProgress
+        onPaint: {
+            if (!root.showInnerProgress) return
+            var ctx = getContext('2d'); ctx.reset();
+            var cx = width/2, cy = height/2; ctx.translate(cx, cy)
+            function angleFor(v) {
+                var frac = (v - root.min)/(root.max - root.min)
+                if (frac < 0) frac = 0; if (frac > 1) frac = 1
+                return (root.startAngle + frac*(root.endAngle-root.startAngle) + root.orientationOffset) * Math.PI/180.0
+            }
+            var a0 = angleFor(root.min)
+            var a1 = angleFor(root.value)
+            var r = root.innerProgressRadius
+            if (r <= 0) return
+            ctx.lineWidth = root.innerProgressWidth
+            ctx.lineCap = root.innerProgressRoundCap ? 'round' : 'butt'
+            ctx.strokeStyle = root.innerProgressCoreEffectiveColor
+            ctx.beginPath(); ctx.arc(0,0, r, a0, a1, false); ctx.stroke()
+            var savedComp = ctx.globalCompositeOperation
+            if (root.innerProgressAdditive)
+                ctx.globalCompositeOperation = 'lighter'
+
+            // 1) Czerwone zewnętrzne halo (dedykowane parametry)
+            if (root.innerProgressGlow) {
+                var passes = Math.max(1, root.innerProgressGlowPasses)
+                for (var gp = passes; gp >= 1; gp--) {
+                    var outerFrac = gp / passes
+                    var innerFrac = 1 - outerFrac
+                    var alphaFrac = Math.pow(innerFrac, root.innerProgressGlowFalloffPower)
+                    if (alphaFrac <= 0) continue
+                    var expansion = root.innerProgressGlowSpreadPx * outerFrac
+                    ctx.lineWidth = root.innerProgressWidth + expansion * 2
+                    ctx.lineCap = root.innerProgressRoundCap ? 'round' : 'butt'
+                    ctx.strokeStyle = root.markerGlowColor
+                    ctx.globalAlpha = root.innerProgressGlowMaxAlpha * alphaFrac
+                    ctx.beginPath(); ctx.arc(0,0, r, a0, a1, false); ctx.stroke()
+                }
+                ctx.globalAlpha = 1.0
+            }
+
+            // 2) Wewnętrzne białe halo
+            if (root.innerProgressWhiteGlow) {
+                var wPasses = Math.max(1, root.innerProgressWhiteGlowPasses)
+                for (var wp = wPasses; wp >= 1; wp--) {
+                    var wOuterFrac = wp / wPasses
+                    var wInnerFrac = 1 - wOuterFrac
+                    var wAlphaFrac = Math.pow(wInnerFrac, root.innerProgressWhiteGlowFalloffPower)
+                    if (wAlphaFrac <= 0) continue
+                    var wExpansion = root.innerProgressWhiteGlowSpreadPx * wOuterFrac
+                    ctx.lineWidth = root.innerProgressWidth + wExpansion * 2
+                    ctx.lineCap = root.innerProgressRoundCap ? 'round' : 'butt'
+                    ctx.strokeStyle = root.innerProgressWhiteGlowEffectiveColor
+                    ctx.globalAlpha = root.innerProgressWhiteGlowMaxAlpha * wAlphaFrac
+                    ctx.beginPath(); ctx.arc(0,0, r, a0, a1, false); ctx.stroke()
+                }
+                ctx.globalAlpha = 1.0
+            }
+
+            ctx.globalCompositeOperation = savedComp
         }
     }
 
@@ -428,7 +525,7 @@ Item {
                                 baseHalf = savedBaseW + wExpansion
                                 buildPointerPath(wInward)
                                 baseHalf = savedBaseW
-                                ctx.fillStyle = root.markerInnerGlowColor
+                                ctx.fillStyle = root.markerInnerGlowEffectiveColor
                                 ctx.globalAlpha = root.markerInnerGlowMaxAlpha * wAlphaFrac
                                 ctx.fill()
                             }
@@ -437,7 +534,7 @@ Item {
                     }
                     // Rdzeń biały
                     buildPointerPath(0)
-                    ctx.fillStyle = root.markerCoreColor
+                    ctx.fillStyle = root.markerCoreEffectiveColor
                     ctx.fill()
                     // Cienka linia wewnętrzna
                     if (w > 3) {
@@ -478,16 +575,21 @@ Item {
     }
 
     // Update marker when value or geometry changes
-    onValueChanged: if (!showNeedle) {
-        if (smoothMarker) {
-            // Update smoothed target; SmoothedAnimation drives repaint via onMarkerSmoothedValueChanged
-            markerSmoothedValue = value
-        } else {
-            markerCanvas.requestPaint()
+    onValueChanged: {
+        if (showInnerProgress) innerProgressCanvas.requestPaint()
+        if (!showNeedle) {
+            if (smoothMarker) {
+                markerSmoothedValue = value
+            } else {
+                markerCanvas.requestPaint()
+            }
         }
     }
-    onMarkerSmoothedValueChanged: if (!showNeedle && smoothMarker) markerCanvas.requestPaint()
-    onStartAngleChanged: if (!showNeedle) markerCanvas.requestPaint()
-    onEndAngleChanged: if (!showNeedle) markerCanvas.requestPaint()
+    onMarkerSmoothedValueChanged: if (!showNeedle && smoothMarker) { markerCanvas.requestPaint(); if (showInnerProgress) innerProgressCanvas.requestPaint() }
+    onStartAngleChanged: { if (!showNeedle) markerCanvas.requestPaint(); if (showInnerProgress) innerProgressCanvas.requestPaint() }
+    onEndAngleChanged: { if (!showNeedle) markerCanvas.requestPaint(); if (showInnerProgress) innerProgressCanvas.requestPaint() }
+    onInnerProgressRadiusChanged: if (showInnerProgress) innerProgressCanvas.requestPaint()
+    onInnerProgressWidthChanged: if (showInnerProgress) innerProgressCanvas.requestPaint()
+    onInnerProgressColorChanged: if (showInnerProgress) innerProgressCanvas.requestPaint()
     // (redFrom handled above with scale repaint & marker repaint)
 }

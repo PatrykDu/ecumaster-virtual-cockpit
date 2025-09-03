@@ -316,6 +316,18 @@ Window {
                 max: 7000
                 min: 0
                 showNeedle: false  // używamy markera zamiast klasycznej igły
+                // Biały wewnętrzny pasek postępu RPM (0 -> aktualne obroty)
+                showInnerProgress: true
+                innerProgressColor: 'white'
+                innerProgressWidth: width * 0.012
+                innerProgressRadius: radius - ringWidth * 1.55  // głębiej pod redline
+                innerProgressGlowSpreadPx: markerGlowSpreadPx * 0.70
+                innerProgressGlowPasses: 8
+                innerProgressGlowMaxAlpha: markerGlowMaxAlpha * 0.85
+                innerProgressWhiteGlowSpreadPx: markerInnerGlowSpreadPx * 0.75
+                innerProgressWhiteGlowPasses: 6
+                innerProgressWhiteGlowMaxAlpha: markerInnerGlowMaxAlpha * 0.90
+                innerProgressRoundCap: false   // prostokątne końce, nie wychodzi poza 0
                 markerWhiteNeedle: true
                 markerSharpTip: true
                 markerGlow: true
