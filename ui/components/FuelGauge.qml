@@ -1,9 +1,7 @@
 import QtQuick 2.15
-
-// FUEL GAUGE
 Item {
     id: root
-    property int level: TEL ? TEL.fuel : 0     // 0..100 percentage
+    property int level: TEL ? TEL.fuel : 0
 
     property var bars: [
         { w: 150, shift: 5,  thick: 6, label: 'E' },
@@ -67,7 +65,6 @@ Item {
         fillCanvas.requestPaint() // ensure fill updates after geometry changes
     }
 
-    // FILL CANVAS
     Canvas {
         id: fillCanvas
         anchors.fill: parent
@@ -123,7 +120,7 @@ Item {
     onLeftPadChanged: { computeFullLeftEdge() }
     onWidthChanged: { computeFullLeftEdge() }
     onHeightChanged: { computeFullLeftEdge() }
-    onLevelChanged: fillCanvas.requestPaint() // repaint when fuel changes
+    onLevelChanged: fillCanvas.requestPaint()
     Component.onCompleted: computeFullLeftEdge()
 
     function blendChannel(a,b,t){ return Math.round(a + (b-a)*t) }
@@ -168,7 +165,6 @@ Item {
         return rgbToHex(blendChannel(cY.r,cW.r,t), blendChannel(cY.g,cW.g,t), blendChannel(cY.b,cW.b,t))
     }
 
-    // BARS
     Repeater {
         model: bars.length
         delegate: Item {
@@ -223,7 +219,6 @@ Item {
         }
     }
 
-    // GUIDE CANVAS
     Canvas {
         id: guideCanvas
         anchors.fill: parent

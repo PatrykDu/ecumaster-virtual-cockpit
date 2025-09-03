@@ -4,10 +4,9 @@ import crcmod, serial  # type: ignore
 from telemetry import Telemetry
 import config
 
-# CRC16
 _crc_func = crcmod.mkCrcFun(0x11021, rev=True, initCrc=0xFFFF, xorOut=0xFFFF)
 
-class TeensyReader(threading.Thread):  # SERIAL READER ONLY
+class TeensyReader(threading.Thread):
     def __init__(self, telemetry: Telemetry):
         super().__init__(daemon=True)
         self.telemetry = telemetry
@@ -28,7 +27,6 @@ class TeensyReader(threading.Thread):  # SERIAL READER ONLY
         buf = bytearray()
         while not self.stop_event.is_set():
             if self.port is None:
-                # Retry serial open every 1s until available
                 self.open_serial()
                 if self.port is None:
                     time.sleep(1.0)
@@ -40,7 +38,6 @@ class TeensyReader(threading.Thread):  # SERIAL READER ONLY
                         buf.extend(chunk)
                         self._consume_buffer(buf)
                     else:
-                        # small sleep to avoid busy loop
                         time.sleep(0.002)
                 except Exception as e:
                     print(f"[io_teensy] Serial error: {e}; disconnecting")
@@ -52,10 +49,8 @@ class TeensyReader(threading.Thread):  # SERIAL READER ONLY
                 pass
 
     def _consume_buffer(self, buf: bytearray):
-    # PARSE
         FRAME_LEN = config.FRAME_LEN_BYTES
         while len(buf) >= FRAME_LEN:
-            # MAGIC
             if buf[0] != (config.FRAME_MAGIC & 0xFF) or (len(buf) >= 2 and buf[1] != (config.FRAME_MAGIC >> 8) & 0xFF):
                 buf.pop(0)
                 continue
@@ -77,12 +72,12 @@ class TeensyReader(threading.Thread):  # SERIAL READER ONLY
             speed_kmh = (vss_cm_s / 100.0) * 0.036
             self.telemetry.updateFromFrame(int(rpm), float(speed_kmh), int(flags))
 
-def start_serial(telemetry: Telemetry):  # START only serial (no demo logic)
+def start_serial(telemetry: Telemetry):
     reader = TeensyReader(telemetry)
     reader.start()
     return reader
 
-if __name__ == '__main__':  # Simple manual test (prints nothing unless instrumented)
+if __name__ == '__main__':
     tel = Telemetry()
     start_serial(tel)
     try:

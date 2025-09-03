@@ -3,18 +3,13 @@ import QtQuick.Window 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import "components"
-
-// MAIN CLUSTER WINDOW
-
 Window {
     id: root
-    // Physical window size (actual display)
     width: WIDTH
     height: HEIGHT
     color: "black"
     visible: true
 
-    // Logical design resolution (authoring space)
     readonly property int designWidth: typeof DESIGN_WIDTH !== 'undefined' ? DESIGN_WIDTH : width
     readonly property int designHeight: typeof DESIGN_HEIGHT !== 'undefined' ? DESIGN_HEIGHT : height
     readonly property real uiScale: Math.min(width / designWidth, height / designHeight)
@@ -30,7 +25,6 @@ Window {
 
     signal requestStart()
 
-    // Proper ESC handling: only quit in production (DEV_MODE is injected from Python)
     Item {
         id: escCatcher
         anchors.fill: parent
@@ -53,7 +47,6 @@ Window {
         }
     }
 
-    // Live distance updates (immediate 0.1 km trip / 1 km odometer refresh)
     Connections {
         target: TEL
         function onTripChanged(v) { root.tripValue = v }
@@ -71,7 +64,6 @@ Window {
         onTriggered: if (!root.splashDone) startTransition()
     }
 
-    // SPLASH OVERLAY
     Rectangle {
         id: splash
         anchors.fill: parent
@@ -97,7 +89,6 @@ Window {
         ScriptAction { script: splash.visible = false }
     }
 
-    // MAIN CONTENT (scaled logical design surface)
     Item {
         id: content
         width: root.designWidth
@@ -114,21 +105,17 @@ Window {
             anchors.bottomMargin: 10
             anchors.left: parent.left
             anchors.leftMargin: 340
-        // Enlarged width for bigger icons (was 0.09)
         width: content.width * 0.095
-            // Increase height to allow extra offset for the top row
             property int topRowOffset: 30
             height: width + topRowOffset
             visible: true
             z: 600
-        // Larger cell fraction for bigger icons
         property real cell: width * 0.50
             Grid {
                 id: licGrid
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
             rows: 2; columns: 2;
-            // Match right cluster style: positive spacing instead of overlap
             rowSpacing: leftIndicatorsCluster.cell * 0.09
             columnSpacing: leftIndicatorsCluster.width * 0.04
                 Repeater {
@@ -142,7 +129,6 @@ Window {
                         width: leftIndicatorsCluster.cell
                         height: width
                         property bool active: TEL && TEL[modelData.key]
-                        // Shift only the top row visually downward by topRowOffset (use transform so Grid layout isn't overridden)
                         transform: Translate { y: index < 2 ? leftIndicatorsCluster.topRowOffset : 0 }
                         opacity: 1
                         Image {
@@ -159,7 +145,6 @@ Window {
                         Rectangle {
                             id: bgRect
                             anchors.centerIn: indicatorImg
-                            // For shifted (top row) icons keep full size to avoid appearing shorter after transform
                             width: Math.max(0, indicatorImg.paintedWidth - (index < 2 ? 3 : 5))
                             height: Math.max(0, indicatorImg.paintedHeight - (index < 2 ? 3 : 5))
                             radius: width * 0.18
@@ -180,7 +165,6 @@ Window {
             anchors.right: parent.right
             anchors.rightMargin: 370
             width: content.width * 0.09
-            // Extra vertical space to allow offsetting top row
             property int topRowOffset: 20
             height: width + topRowOffset
             visible: true
@@ -191,11 +175,9 @@ Window {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
                 rows: 2; columns: 2;
-                // Increased row spacing (previously overlapping with negative spacing)
                 rowSpacing: rightIndicatorsCluster.cell * 0.14
                 columnSpacing: rightIndicatorsCluster.width * 0.04
                 Repeater {
-                    // Order: top-left, top-right, bottom-left, bottom-right
                     model: [
                         { key: 'charging', src: '../assets/charging.png', color: '#ff2020' },
                         { key: 'park',     src: '../assets/parking.png',  color: '#ff2020' },
@@ -205,9 +187,7 @@ Window {
                     delegate: Item {
                         width: rightIndicatorsCluster.cell
                         height: width
-                        // Dynamic access: if property not yet implemented in Telemetry it'll just be falsy
                         property bool active: TEL && TEL[modelData.key]
-                        // Lower only the top row (indexes 0 and 1)
                         transform: Translate { y: index < 2 ? rightIndicatorsCluster.topRowOffset : 0 }
                         opacity: 1
                         Image {
@@ -224,7 +204,6 @@ Window {
                         Rectangle {
                             id: ricBgRect
                             anchors.centerIn: ricIndicatorImg
-                            // Unified padding: top row (charging, park) shrink 3px, bottom row shrink 5px
                             width: Math.max(0, ricIndicatorImg.paintedWidth - (index < 2 ? 3 : 5))
                             height: Math.max(0, ricIndicatorImg.paintedHeight - (index < 2 ? 3 : 5))
                             radius: width * 0.18
@@ -238,7 +217,6 @@ Window {
             }
         }
 
-    // CENTER GAUGE (RPM + SPEED)
     Item {
             id: checkEngineIcon
             property bool active: TEL && TEL.checkEngine
@@ -267,8 +245,8 @@ Window {
                 anchors.centerIn: engineImage
                 radius: height * 0.18
                 color: '#ff9900'
-                property real pulseLevel: 1.0    // animated 0.55..1 while active
-                property real fadeFactor: 0.0    // animated 0..1 in/out
+                property real pulseLevel: 1.0
+                property real fadeFactor: 0.0
                 opacity: fadeFactor * (checkEngineIcon.active ? pulseLevel : 1)
                 SequentialAnimation {
                     id: pulse
@@ -315,34 +293,31 @@ Window {
                 value: TEL.rpm
                 max: 7000
                 min: 0
-                showNeedle: false  // używamy markera zamiast klasycznej igły
-                // Biały wewnętrzny pasek postępu RPM (0 -> aktualne obroty)
+                showNeedle: false
                 showInnerProgress: true
                 innerProgressColor: 'white'
                 innerProgressWidth: width * 0.012
-                innerProgressRadius: radius - ringWidth * 1.55  // głębiej pod redline
+                innerProgressRadius: radius - ringWidth * 1.55
                 innerProgressGlowSpreadPx: markerGlowSpreadPx * 0.70
                 innerProgressGlowPasses: 8
                 innerProgressGlowMaxAlpha: markerGlowMaxAlpha * 0.85
                 innerProgressWhiteGlowSpreadPx: markerInnerGlowSpreadPx * 0.75
                 innerProgressWhiteGlowPasses: 6
                 innerProgressWhiteGlowMaxAlpha: markerInnerGlowMaxAlpha * 0.90
-                innerProgressRoundCap: false   // prostokątne końce, nie wychodzi poza 0
+                innerProgressRoundCap: false
                 markerWhiteNeedle: true
                 markerSharpTip: true
                 markerGlow: true
-                // Szersze, wyraźniejsze halo
                 markerGlowPasses: 10
                 markerGlowMaxAlpha: 0.30
-                markerGlowSpreadPx: 24        // szersze halo na zewnątrz
-                markerGlowFalloffPower: 1.25  // balans intensywności
-                markerGlowInwardFactor: 1.55  // mocniejsze wejście do środka
+                markerGlowSpreadPx: 24
+                markerGlowFalloffPower: 1.25
+                markerGlowInwardFactor: 1.55
                 markerGlowExtraInward: 10
-                markerWidth: width * 0.010   // zwężona biała część (połowa wcześniejszej szerokości)
-                // Skrócenie markera: przesuwamy początek dalej od środka i lekko cofamy czubek
-                markerInnerRadius: radius * 0.68   // przesunięty dalej od środka żeby nie podchodził pod wewnętrzne koło
-                markerOuterRadius: radius - ringWidth - width * 0.004  // lekkie skrócenie zewnętrznego końca
-                markerTaperStartFraction: 0.63      // korekta proporcji po przesunięciu
+                markerWidth: width * 0.010
+                markerInnerRadius: radius * 0.68
+                markerOuterRadius: radius - ringWidth - width * 0.004
+                markerTaperStartFraction: 0.63
                 redFrom: 5994
                 redTo: 7000
                 label: "" // hide label here
@@ -370,12 +345,9 @@ Window {
                 warnFrom: 5300
                 warnTo: 6000
                 warnColor: '#ffcc33'
-                    // Demo mode detection (DEVELOP_MODE_INT==2 -> full-span demo on Pi)
                     property bool demo2: (typeof DEV_MODE_INT !== 'undefined' && DEV_MODE_INT === 2)
                     property int oilTempLocal: TEL ? TEL.oilTemp : 0
-                    // Raw dynamic redline from oil temperature
                     property int dynRedlineRaw: redlineForOilTemp(oilTempLocal)
-                    // Throttle / quantize in demo2 to reduce repaint churn (50 RPM steps)
                     property int dynRedline: demo2 ? Math.round(dynRedlineRaw / 50) * 50 : dynRedlineRaw
                     onDynRedlineChanged: {
                         if (redFrom !== dynRedline) {
@@ -383,14 +355,11 @@ Window {
                             redTo = 7000
                         }
                     }
-                    // Conditional animation: disable heavy tweening for rapid tiny changes in demo2
                     Behavior on redFrom { enabled: !demo2; NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
                     Behavior on redTo { enabled: !demo2; NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
-                    // Enable needle smoothing only in demo2 (to hide timing jitter from software backend)
                     smoothNeedle: demo2
             }
-
-            // SPEED INNER (SPEED / LOGO)
+            
             Item {
                 id: speedInner
                 anchors.centerIn: parent
@@ -506,7 +475,6 @@ Window {
             }
         }
 
-    // LEFT TURN INDICATOR
     Item {
             id: leftTurnIndicator
             width: clusterCenter.width * 0.11
@@ -527,7 +495,7 @@ Window {
                     leftTurnFadeOut.stop()
                     leftTurnBg.opacity = 0
                     leftTurnFadeIn.restart()
-                } else { // start fade-out sequence for background
+                } else {
                     if (leftTurnBg.opacity > 0) {
                         fadingOut = true
                         leftTurnFadeIn.stop()
@@ -537,7 +505,7 @@ Window {
                     }
                 }
             }
-            Rectangle { // green fill only behind arrow cutout (smaller so it doesn't stick out)
+            Rectangle {
                 id: leftTurnBg
                 anchors.centerIn: parent
                 width: parent.width * 0.96
@@ -559,7 +527,6 @@ Window {
             Connections { target: TEL; function onLeftBlinkChanged(v) { leftTurnIndicator.active = v } }
         }
 
-    // RIGHT TURN INDICATOR
     Item {
             id: rightTurnIndicator
             width: clusterCenter.width * 0.11
@@ -567,7 +534,7 @@ Window {
             anchors.top: clusterCenter.top
             anchors.topMargin: 58
             anchors.left: clusterCenter.right
-            anchors.leftMargin: -130 // mirror distance (positive) of left indicator
+            anchors.leftMargin: -130
             z: 500
             property bool active: TEL ? TEL.rightBlink : false
             property bool fadingOut: false
@@ -611,7 +578,6 @@ Window {
             Connections { target: TEL; function onRightBlinkChanged(v) { rightTurnIndicator.active = v } }
         }
 
-    // FUEL GAUGE
     FuelGauge {
             id: fuelGauge
             anchors.left: content.left
@@ -621,7 +587,6 @@ Window {
             width: content.width * 0.22
             height: content.height * 0.32
         }
-    // LEFT CLUSTER
     LeftCluster {
             id: leftCluster
             base: clusterCenter.width * 0.15
@@ -637,7 +602,6 @@ Window {
             rl: root.rl
             windowRoot: root
         }
-    // WATER TEMP GAUGE
     WaterTempGauge {
             id: waterTempGauge
             anchors.right: content.right
@@ -657,7 +621,6 @@ Window {
             width: content.width * 0.18
         }
 
-    // ODOMETER
     Text {
             id: odometerText
             text: 'ODO: ' + root.odometerValue
@@ -670,7 +633,6 @@ Window {
             anchors.bottomMargin: 35
             z: 600
         }
-    // TRIP
     Text {
             id: tripText
             text: 'TRIP: ' + tripValue.toFixed(1)
@@ -699,33 +661,24 @@ Window {
         }
     }
 
-    // FUNCTIONS
     function animateTripReset() {
         tripPulse.start();
         tripFlash.start();
     }
 
     function redlineForOilTemp(oilTemp) {
-        // Proportional stretch: original temp points 30..85 shifted so max (5994) now at 90°C.
-        // Scale factor applied to (temp-30): new = 30 + (old-30) * (90-30)/(85-30) = 30 + (old-30)*60/55.
-        // Rounded to nearest whole °C while keeping monotonic progression.
-        // RPM breakpoints unchanged to preserve curve shape.
         var table = [
-            // Early warm‑up (unchanged low temps)
             [30,2498],
             [35,2750],
             [40,2994],
             [45,3250],
             [50,3498],
-            // Stretch to delay 4000 until exactly 60°C
-            [55,3700],  // lowered vs previous to slow approach
-            [60,3994],  // 4000 RPM only reached at 60°C
-            // Post‑60 ramp to 5000 at 80°C (approx 100 RPM / °C avg)
+            [55,3700],
+            [60,3994],
             [65,4250],
             [70,4498],
             [75,4750],
-            [80,4994],  // target maintained
-            // Final ramp 80→90°C
+            [80,4994],
             [85,5498],
             [90,5994]
         ];

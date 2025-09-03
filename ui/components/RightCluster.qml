@@ -1,6 +1,4 @@
 import QtQuick 2.15
-
-// RIGHT CLUSTER (OIL & WATER TEMPS)
 Item {
     id: root
     property int oilTemp: TEL ? TEL.oilTemp : 0
@@ -17,31 +15,24 @@ Item {
     property int iconPaddingH: 8
     property int rowSpacing: -20
     property int barWidth: width * 0.55
-    // Exact pixel bar height (must be integer for all rows)
     property int barHeight: 12
-    // Integer-aligned bar vertical offset for crisp rendering
     property int barYOffset: Math.round((rowHeight - barHeight) / 2)
     function px(v) { return Math.round(v); }
     property color trackColor: '#404040'
     property int valueFontSize: 26
     property int valueLineWidth: 3
     property bool valueLineSnap: true
-    // Red/blue danger bars above track (outside optimal range)
     property int dangerBarHeight: 7  // +1 higher per request
-    // Vertical value line extends into danger bar area
     property int valueLineHeightAbove: dangerBarHeight
-    property int dangerBarOffset: 0   // gap above track (0 = touching)
-    // Marker styling for optimal range boundaries
+    property int dangerBarOffset: 0
     property int markerWidth: 4
     property color markerColor: '#d62828'
-    // Low-side (cold) danger color for temperatures
     property color lowTempDangerColor: '#1e66ff'
     function valueToX(v, vmin, vmax, trackW) { return trackW * (v - vmin) / (vmax - vmin); }
     function markerPos(v, vmin, vmax, trackW) { return Math.round(valueToX(v, vmin, vmax, trackW) - markerWidth/2); }
     // Ensure crisp danger bars
     property bool dangerSnap: true
 
-    // Compute a track width so that its global right edge matches AFR track's global right edge
     function unifiedWidth(rowItem, trackLocalX) {
         if (!afrRow || !afrTrack) return barWidth; // fallback before component fully constructed
         // Global right edge of AFR track
@@ -56,39 +47,31 @@ Item {
     implicitHeight: (rowHeight * 5) + (rowSpacing * 4)
     clip: false
 
-    // Arc layout: ensure track start (icon right edge + padding) follows linear progression
     property int rowCount: 5
     property real trackBase: 54      // pixels: start (bottom row) track x relative to row.x=0
     property real trackStep: 14      // how much earlier (to the left) each upper row begins
     function desiredTrackStart(idx) { return trackBase - trackStep * (rowCount - 1 - idx); }
-    // Fine adjustment for bottom AFR row
     property real afrRowExtraShift: -20
 
-    // CHARGING VOLTAGE RANGE
     property real chargeBarMin: 11.0
     property real chargeBarMax: 16.0
     function chargeColor(v) { return (v < 13.0 || v > 15.0) ? '#d62828' : 'white'; }
 
-    // OIL PRESSURE RANGE
     property real oilPressBarMin: 0.0
     property real oilPressBarMax: 8.0
     function oilPressColor(p) { return (p < 1.2 || p > 6.5) ? '#d62828' : 'white'; }
 
-    // AFR RANGE
     property real afrBarMin: 10.0
     property real afrBarMax: 18.0
     function afrColor(a) { return (a < 12.5 || a > 15.5) ? '#d62828' : 'white'; }
 
-    // LAYOUT
     Column {
         id: rows
         anchors.fill: parent
         spacing: rowSpacing
 
-    // (oil pressure row moved lower, see after charging row)
-
-        // Oil temperature row
-    // OIL TEMP ROW
+        
+    
     Item {
             id: oilRow
             // Position row so that oilTrack.x (computed from icon geometry) equals desiredTrackStart(0)
@@ -96,7 +79,7 @@ Item {
             height: rowHeight
             width: parent.width
 
-            // Icon + backing
+            
             Item {
                 id: oilIconWrap
                 // Shift & enlarge to fully show wide icon
@@ -135,7 +118,7 @@ Item {
                 }
             }
 
-            // Track + fill
+            
             Rectangle {
                 id: oilTrack
                 // Keep bar aligned with standard column, independent of protrusion
@@ -163,7 +146,7 @@ Item {
                 }
                 // Optimal range markers removed – replaced by external danger bars
             }
-            // Danger bars (outside optimal range) for OIL (render above track)
+            
             Rectangle { // left danger (below optimal - cold => blue)
                 y: dangerSnap ? px(oilTrack.y - dangerBarOffset - dangerBarHeight) : oilTrack.y - dangerBarOffset - dangerBarHeight
                 x: dangerSnap ? px(oilTrack.x) : oilTrack.x
@@ -186,7 +169,7 @@ Item {
                 z: 40
                 layer.enabled: true; layer.smooth: false
             }
-            // External value line to avoid halo artifacts
+            
             Rectangle {
                 id: oilValueLine
                 width: valueLineWidth
@@ -213,8 +196,8 @@ Item {
             }
         }
 
-    // Water temperature row
-    // WATER TEMP ROW
+    
+    
     Item {
             id: waterRow
             x: desiredTrackStart(1) - (waterIconWrap.x + waterIconWrap.width + iconPaddingH)
@@ -246,7 +229,7 @@ Item {
                 id: waterTrack
                 x: px(waterIconWrap.x + waterIconWrap.width + iconPaddingH)
                 y: px(barYOffset)
-                // Align global right edge with AFR track
+                
                 width: unifiedWidth(waterRow, waterTrack.x)
                 height: barHeight
                 radius: 0
@@ -266,9 +249,9 @@ Item {
                     antialiasing: false
                     border.width: 0
                 }
-                // markers removed
+                
             }
-            // Danger bars (outside optimal range) for WATER
+            
             Rectangle { // left danger (below optimal - cold => blue)
                 y: dangerSnap ? px(waterTrack.y - dangerBarOffset - dangerBarHeight) : waterTrack.y - dangerBarOffset - dangerBarHeight
                 x: dangerSnap ? px(waterTrack.x) : waterTrack.x
@@ -316,7 +299,7 @@ Item {
                 x: waterTrack.x + waterTrack.width + 12
             }
         }
-        Item { // CHARGE ROW
+    Item {
             id: chargeRow
             x: desiredTrackStart(2) - (chargeIconWrap.x + chargeIconWrap.width + iconPaddingH)
             height: rowHeight
@@ -356,7 +339,7 @@ Item {
                 id: chargeTrack
                 x: chargeIconWrap.x + chargeIconWrap.width + iconPaddingH
                 y: barYOffset
-                // Align global right edge with AFR track
+                
                 width: unifiedWidth(chargeRow, chargeTrack.x)
                 height: barHeight
                 radius: 0
@@ -376,9 +359,9 @@ Item {
                     antialiasing: false
                     border.width: 0
                 }
-                // markers removed
+                
             }
-            // Danger bars (outside optimal range 13 - 15 V)
+            
             Rectangle { // left danger
                 y: dangerSnap ? px(chargeTrack.y - dangerBarOffset - dangerBarHeight) : chargeTrack.y - dangerBarOffset - dangerBarHeight
                 x: dangerSnap ? px(chargeTrack.x) : chargeTrack.x
@@ -426,15 +409,14 @@ Item {
                 x: chargeTrack.x + chargeTrack.width + 12
             }
         }
-        Item { // OIL PRESSURE ROW
+    Item {
             id: oilPressRow
             x: desiredTrackStart(3) - (oilPressIconWrap.x + oilPressIconWrap.width + iconPaddingH)
             height: rowHeight
             width: parent.width
             Item {
                 id: oilPressIconWrap
-                // Larger and further left for wide pressure symbol
-                // Keep (scaleFactor - protrudeFactor) ≈ 0.83 so right gap to track stays similar
+                
                 property real protrudeFactor: 0.52
                 property real scaleFactor: 1.35   // enlarged
                 x: -iconSize * protrudeFactor
@@ -469,7 +451,7 @@ Item {
                     }
                 }
             }
-            Rectangle { // Track + fill (oil pressure shortened)
+            Rectangle {
                 id: oilPressTrack
                 x: px(oilPressIconWrap.x + oilPressIconWrap.width + iconPaddingH)
                 y: barYOffset
@@ -493,9 +475,9 @@ Item {
                     antialiasing: false
                     border.width: 0
                 }
-                // markers removed
+                
             }
-            // Danger bars (outside optimal range 1.2 - 6.5 bar)
+            
             Rectangle { // left danger
                 y: dangerSnap ? px(oilPressTrack.y - dangerBarOffset - dangerBarHeight) : oilPressTrack.y - dangerBarOffset - dangerBarHeight
                 x: dangerSnap ? px(oilPressTrack.x) : oilPressTrack.x
@@ -543,19 +525,19 @@ Item {
                 x: oilPressTrack.x + oilPressTrack.width + 12
             }
         }
-        Item { // AFR ROW
+    Item {
             id: afrRow
             x: desiredTrackStart(4) - (afrIconWrap.x + afrIconWrap.width + iconPaddingH) + afrRowExtraShift
             height: rowHeight
             width: parent.width
 
-            // Icon + backing
+            
             Item {
                 id: afrIconWrap
                 width: iconSize
                 height: iconSize
                 anchors.verticalCenter: parent.verticalCenter
-                // Inner container to shrink actual graphics (keep same track alignment as other rows)
+                
                 Item {
                     id: afrInner
                     // Center with integer pixel snap to avoid fractional crop
@@ -588,8 +570,8 @@ Item {
                     }
                 }
             }
-            // Track + fill
-            Rectangle { // Track + fill
+            
+            Rectangle {
                 id: afrTrack
                 x: px(afrIconWrap.x + afrIconWrap.width + iconPaddingH)
                 y: px(barYOffset)
@@ -612,9 +594,9 @@ Item {
                     antialiasing: false
                     border.width: 0
                 }
-                // markers removed
+                
             }
-            // Danger bars (outside optimal range 12.5 - 15.5 AFR)
+            
             Rectangle { // left danger
                 y: dangerSnap ? px(afrTrack.y - dangerBarOffset - dangerBarHeight) : afrTrack.y - dangerBarOffset - dangerBarHeight
                 x: dangerSnap ? px(afrTrack.x) : afrTrack.x

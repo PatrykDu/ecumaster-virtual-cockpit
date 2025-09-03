@@ -1,6 +1,4 @@
 import QtQuick 2.15
-
-// WATER TEMP GAUGE
 Item {
     id: root
     property int tempC: 0
@@ -17,7 +15,7 @@ Item {
     ]
 
     property int iconSize: 60
-    property int iconGap: 8                // gap between icon and label
+    property int iconGap: 8
     property url iconSource: '../../assets/water_temp.png'
     property int iconBackingSideTrim: 6
     property real iconVerticalLift: (iconSize - fullLabelSize)/2
@@ -25,7 +23,7 @@ Item {
 
     property color barColor: 'white'
     property color labelColor: 'white'
-    property int labelGap: 8               // gap from bar to label (label on LEFT side for mirrored gauge)
+    property int labelGap: 8
     property int halfLabelSize: 30
     property int fullLabelSize: 38
     property int vSpacing: Math.round(height / (bars.length + 0.5))
@@ -71,7 +69,6 @@ Item {
         fillCanvas.requestPaint()
     }
 
-    // FILL CANVAS
     Canvas {
         id: fillCanvas
         anchors.fill: parent
@@ -178,7 +175,6 @@ Item {
         return highTempColor
     }
 
-    // BARS
     Repeater {
         model: bars.length
         delegate: Item {
@@ -233,7 +229,6 @@ Item {
         }
     }
 
-    // GUIDE CANVAS
     Canvas {
         id: guideCanvas
         anchors.fill: parent

@@ -2,18 +2,14 @@ import QtQuick 2.15
 import QtQuick.Window 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-
-// DEV PANEL WINDOW
 Window {
     id: dev
     title: "Dev Panel"
     width: 420
-    // Dynamic height to fit all controls (with padding)
     height: devCol ? Math.min(900, devCol.implicitHeight + 24) : 700
     visible: true
     color: "#202225"
     Component.onCompleted: {
-        // AUTO CENTER + BLINK ALL ON OPEN
         TEL.rpm = 3500;
         TEL.speed = 150;
         TEL.fuel = 50;
@@ -30,64 +26,54 @@ Window {
 
         Text { text: "Developer Panel"; color: 'white'; font.pixelSize: 20; font.bold: true }
 
-    // RPM SLIDER
     RowLayout {
             Layout.fillWidth: true; spacing: 8
             Text { text: 'RPM: ' + TEL.rpm; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
             Slider { id: rpmSlider; from: 0; to: 7000; stepSize: 10; Layout.fillWidth: true; value: TEL.rpm; onValueChanged: TEL.rpm = Math.round(value) }
         }
 
-    // SPEED SLIDER
     RowLayout {
             Layout.fillWidth: true; spacing: 8
             Text { text: 'Speed: ' + TEL.speed.toFixed(1) + ' km/h'; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
             Slider { id: speedSlider; from: 0; to: 300; stepSize: 0.5; Layout.fillWidth: true; value: TEL.speed; onValueChanged: TEL.speed = value }
         }
 
-    // FUEL SLIDER
     RowLayout {
             Layout.fillWidth: true; spacing: 8
             Text { text: 'Fuel: ' + TEL.fuel + ' %'; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
             Slider { id: fuelSlider; from: 0; to: 100; stepSize: 1; Layout.fillWidth: true; value: TEL.fuel; onValueChanged: TEL.fuel = Math.round(value) }
         }
 
-    // OIL TEMP SLIDER (moved before water per requested order)
     RowLayout {
             Layout.fillWidth: true; spacing: 8
             Text { text: 'Oil Temp: ' + TEL.oilTemp + ' °C'; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
             Slider { id: oilTempSlider; from: 0; to: 150; stepSize: 1; Layout.fillWidth: true; value: TEL.oilTemp; onValueChanged: TEL.oilTemp = Math.round(value) }
         }
 
-    // WATER TEMP SLIDER (after oil temp)
     RowLayout {
             Layout.fillWidth: true; spacing: 8
             Text { text: 'Water Temp: ' + TEL.waterTemp + ' °C'; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
             Slider { id: waterTempSlider; from: 0; to: 150; stepSize: 1; Layout.fillWidth: true; value: TEL.waterTemp; onValueChanged: TEL.waterTemp = Math.round(value) }
         }
 
-        // CHARGING VOLTAGE SLIDER (before oil pressure & AFR)
         RowLayout {
                 Layout.fillWidth: true; spacing: 8
                 Text { text: 'Charge V: ' + (TEL.chargingVolt ? TEL.chargingVolt.toFixed(2) : '0.00'); color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
                 Slider { id: chargeSlider; from: 0.0; to: 20.0; stepSize: 0.05; Layout.fillWidth: true; value: TEL.chargingVolt; onValueChanged: TEL.chargingVolt = Math.round(value * 100) / 100 }
             }
 
-        // OIL PRESSURE SLIDER (after charging)
         RowLayout {
                 Layout.fillWidth: true; spacing: 8
                 Text { text: 'Oil P: ' + (TEL.oilPressure ? TEL.oilPressure.toFixed(1) : '0.0') + ' bar'; color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
                 Slider { id: oilPressSlider; from: 0.0; to: 8.0; stepSize: 0.1; Layout.fillWidth: true; value: TEL.oilPressure; onValueChanged: TEL.oilPressure = Math.round(value * 10) / 10 }
             }
 
-        // AFR SLIDER (last)
         RowLayout {
                 Layout.fillWidth: true; spacing: 8
                 Text { text: 'AFR: ' + (TEL.afr ? TEL.afr.toFixed(1) : '0.0'); color: 'white'; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 110 }
                 Slider { id: afrSlider; from: 0.0; to: 25.0; stepSize: 0.1; Layout.fillWidth: true; value: TEL.afr; onValueChanged: TEL.afr = Math.round(value * 10) / 10 }
             }
 
-    // STATUS TOGGLES (custom rows)
-    // Row 1 centered: Left, Chk, Right
     RowLayout {
         Layout.fillWidth: true
         Layout.topMargin: -4
@@ -147,10 +133,8 @@ Window {
         }
         Item { Layout.fillWidth: true }
     }
-    // Row 2: left group High Low, right group Chg Park
     RowLayout {
         Layout.fillWidth: true; spacing: 10
-        // Left group
         CheckBox {
             id: cbLow
             text: 'Low'
@@ -186,7 +170,6 @@ Window {
             implicitWidth: indicator.width + 6 + contentItem.implicitWidth
         }
         Item { Layout.fillWidth: true }
-        // Right group
         CheckBox {
             id: cbChg
             text: 'Chg'
@@ -222,7 +205,6 @@ Window {
             implicitWidth: indicator.width + 6 + contentItem.implicitWidth
         }
     }
-    // Row 3: left group FogR Under, right group ABS TPMS
     RowLayout {
         Layout.fillWidth: true; spacing: 10
         CheckBox {
@@ -297,16 +279,13 @@ Window {
     }
 
     Rectangle { Layout.fillWidth: true; height: 1; color: '#444' }
-    // LEFT CLUSTER NAVIGATION
         Text { text: "Left Cluster Navigation"; color: '#bbb'; font.pixelSize: 14; Layout.topMargin: -4 }
-    // NAV UP
     RowLayout {
             Layout.fillWidth: true
             Item { Layout.preferredWidth: 1; Layout.fillWidth: true }
             Button { text: "\u2191"; width: 60; onClicked: TEL.invokeNavUp() }
             Item { Layout.preferredWidth: 1; Layout.fillWidth: true }
         }
-    // NAV LEFT / DOWN / RIGHT
     RowLayout {
             Layout.fillWidth: true; spacing: 12
             Item { Layout.fillWidth: true }
@@ -315,7 +294,6 @@ Window {
             Button { text: "\u2192"; width: 60; onClicked: TEL.invokeNavRight() }
             Item { Layout.fillWidth: true }
         }
-        // Exhaust checkbox relocated under arrows
         RowLayout {
             Layout.fillWidth: true; spacing: 8
             Item { Layout.fillWidth: true }

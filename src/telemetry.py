@@ -7,8 +7,8 @@ import os, json, math, time
 class Telemetry(QObject):
     rpmChanged = Signal(int)
     speedChanged = Signal(float)
-    tripChanged = Signal(float)  # emits displayed trip (0.1 km resolution)
-    odometerChanged = Signal(int)  # emits whole km odometer
+    tripChanged = Signal(float)
+    odometerChanged = Signal(int)
     leftBlinkChanged = Signal(bool)
     rightBlinkChanged = Signal(bool)
     highBeamChanged = Signal(bool)
@@ -54,20 +54,18 @@ class Telemetry(QObject):
         self._charging = False
         self._abs = False
         self._wheelPressure = False
-        self._afr = 14.7  # Air-Fuel Ratio (stoich baseline)
-        self._chargingVolt = 14.2  # Battery/charging voltage
-        self._oilPressure = 0.0  # bar
-    # Distance / odometer tracking
-        self._odometer_km = 0.0  # accumulated precise odometer (km, fractional)
-        self._trip_precise_km = 0.0  # precise trip distance (km, fractional)
-        self._last_trip_saved_tenth = 0  # last persisted trip tenth (trip * 10 as int)
-        self._last_odo_saved_int = 0  # last emitted odometer whole km (int)
-        self._last_odo_saved_tenth = 0  # last persisted odometer tenth (odometer *10)
-        self._last_speed_time = None  # set on first speed sample
+        self._afr = 14.7
+        self._chargingVolt = 14.2
+        self._oilPressure = 0.0
+        self._odometer_km = 0.0
+        self._trip_precise_km = 0.0
+        self._last_trip_saved_tenth = 0
+        self._last_odo_saved_int = 0
+        self._last_odo_saved_tenth = 0
+        self._last_speed_time = None
         self._last_speed_value = 0.0
-        self._distance_enabled = True  # could expose toggle later
+        self._distance_enabled = True
 
-        # Attempt to load persisted odometer/trip so we continue counting
         try:
             data_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'data.json'))
             if os.path.isfile(data_path):
@@ -83,9 +81,8 @@ class Telemetry(QObject):
         except Exception as e:
             print(f"[Telemetry:init] load distance error: {e}")
 
-        # Periodic distance integration (ensures accumulation even with steady speed)
         self._distance_timer = QTimer()
-        self._distance_timer.setInterval(500)  # 0.5s -> resolution ~14 m at 100 km/h
+        self._distance_timer.setInterval(500)
         self._distance_timer.timeout.connect(self._distance_tick)
         self._distance_timer.start()
 
@@ -123,7 +120,6 @@ class Telemetry(QObject):
         return self._speed
 
     def setSpeed(self, v: float):
-        # Just record speed; periodic timer integrates.
         if self._last_speed_time is None:
             self._last_speed_time = time.monotonic()
         self._last_speed_value = v
@@ -131,9 +127,7 @@ class Telemetry(QObject):
             self._speed = v
             self.speedChanged.emit(v)
 
-    # Expose properties for direct QML binding (optional)
     def getTrip(self) -> float:
-        # Displayed trip rounded down to 0.1 km like persistence logic
         return self._last_trip_saved_tenth / 10.0
 
     def getOdometer(self) -> int:
@@ -370,7 +364,6 @@ class Telemetry(QObject):
             self.setLeftBlink(bool(flags & (1 << 0)))
             self.setRightBlink(bool(flags & (1 << 1)))
             self.setHighBeam(bool(flags & (1 << 2)))
-            # bit3 previously fog (removed)
             self.setPark(bool(flags & (1 << 3)))
             self.setFuel((flags >> 4) & 0xFF)
             self.setWaterTemp(min(150, int(self._fuel * 1.5)))
@@ -381,19 +374,16 @@ class Telemetry(QObject):
                 self.firstFrameReceived.emit()
 
     def demoTick(self, t: float):
-        # Unified demo with two modes: full-span (DEVELOP_MODE=2) and legacy (else)
         def tri(time_s: float, period: float) -> float:
             ph = (time_s % period) / period
             return ph * 2.0 if ph < 0.5 else 2.0 - ph * 2.0
         rpm_frac = tri(t, 6.0)
-        # RPM limited to 0-7000 for demo (was 7800)
         rpm = int(rpm_frac * 7000)
         speed = rpm_frac * 230.0
         fuel_val = int(tri(t, 22.0) * 100)
 
         if os.environ.get("DEVELOP_MODE") == "2":
             water_temp = int(40 + tri(t * 0.85, 14.0) * (140 - 40))
-            # Oil temp widened to 29-90°C (was 81) for full dynamic redline curve
             oil_temp   = int(29 + tri(t * 0.80 + 1.3, 15.0) * (90 - 29))
             charging_volt = 11.0 + tri(t * 0.95, 11.0) * 5.0
             oil_press = tri(t * 1.10, 7.5) * 8.0
@@ -421,7 +411,6 @@ class Telemetry(QObject):
         fog_rear = int((t / 5) % 2) == 0
         underglow = int((t * 0.5) % 2) == 0
 
-        # Direct property update path (match other telemetry props; avoid updateFromFrame)
         self.setRpm(rpm)
         self.setSpeed(speed)
         self.setLeftBlink(blink_left)
@@ -448,7 +437,6 @@ class Telemetry(QObject):
     # PERSISTENCE
     @Slot(int, int, int, int)
     def saveSuspension(self, fr: int, fl: int, rr: int, rl: int):
-        """Persist suspension values to data/data.json (merging with existing fields)."""
         try:
             data_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'data.json'))
             obj = {}
@@ -470,7 +458,6 @@ class Telemetry(QObject):
 
     @Slot(bool)
     def saveExhaust(self, exhaust_enabled: bool):
-        """Persist exhaust value to data/data.json, merging with existing keys."""
         try:
             data_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'data.json'))
             obj = {}
@@ -488,7 +475,6 @@ class Telemetry(QObject):
 
     @Slot(float)
     def saveOdometer(self, odometer_value: float):
-        """Persist odometer (float) to data/data.json, merging with existing keys."""
         try:
             data_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'data.json'))
             obj = {}
@@ -506,7 +492,6 @@ class Telemetry(QObject):
 
     @Slot(float)
     def saveTrip(self, trip_value: float):
-        """Persist trip (float) to data/data.json, merging with existing keys."""
         try:
             data_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'data.json'))
             obj = {}
@@ -519,7 +504,6 @@ class Telemetry(QObject):
             obj['trip'] = float(trip_value)
             with open(data_path, 'w', encoding='utf-8') as f:
                 json.dump(obj, f, ensure_ascii=False, indent=2)
-            # If trip reset requested (value == 0), also reset internal precise counters
             if abs(trip_value) < 1e-9:
                 self._trip_precise_km = 0.0
                 self._last_trip_saved_tenth = 0
@@ -530,22 +514,13 @@ class Telemetry(QObject):
         except Exception as e:
             print(f"[saveTrip] error: {e}")
 
-    # --- INTERNAL DISTANCE INTEGRATION LOGIC ---
+    # DISTANCE
     def _accumulate_distance(self, dist_km: float):
-        """Accumulate distance travelled (km) updating trip/odometer thresholds.
-
-        Rules:
-        - Trip persists each 0.1 km (100 m) increment
-        - Odometer persists each 1 km increment
-        This keeps file writes modest while providing required resolution.
-        """
         self._trip_precise_km += dist_km
         self._odometer_km += dist_km
 
-        # Trip threshold (0.1 km)
         new_trip_tenth = int(self._trip_precise_km * 10 + 1e-6)
         if new_trip_tenth > self._last_trip_saved_tenth:
-            # Write every missing 0.1 so UI (polling) can catch intermediate states
             while self._last_trip_saved_tenth < new_trip_tenth:
                 self._last_trip_saved_tenth += 1
                 trip_to_store = self._last_trip_saved_tenth / 10.0
@@ -555,8 +530,6 @@ class Telemetry(QObject):
                 except Exception:
                     break
 
-        # Odometer threshold (1 km)
-        # Odometer persistence: save every 0.1 km but only emit signal on whole km
         new_odo_tenth = int(self._odometer_km * 10 + 1e-6)
         if new_odo_tenth > self._last_odo_saved_tenth:
             while self._last_odo_saved_tenth < new_odo_tenth:
@@ -574,7 +547,6 @@ class Telemetry(QObject):
             except Exception:
                 pass
 
-    # Optional helper for external debug/testing
     def debugGetDistances(self):
         return {
             'odometer_km_precise': self._odometer_km,
@@ -595,9 +567,8 @@ class Telemetry(QObject):
             if self._last_speed_value <= 0:
                 self._last_speed_time = now
                 return
-            # Clamp dt to avoid huge jumps after pauses (e.g., app start/sleep)
             if dt > 5.0:
-                dt = 1.0  # treat as one second of travel at current speed
+                dt = 1.0
             dist_km = self._last_speed_value * (dt / 3600.0)
             if dist_km > 0:
                 self._accumulate_distance(dist_km)

@@ -1,8 +1,5 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-
-// GAUGE COMPONENT
-
 Item {
     id: root
     property real min: 0
@@ -12,7 +9,7 @@ Item {
     property real minorStep: 5
     property real startAngle: -130
     property real endAngle: 130
-    property real orientationOffset: -90 // degrees: rotate whole gauge so 0 is up
+    property real orientationOffset: -90
     property real redFrom: 80
     property real redTo: 100
     property real warnFrom: -1
@@ -31,24 +28,20 @@ Item {
     property color tickColorMinor: '#808080'
     property color centerValueColor: 'white'
     property color centerLabelColor: '#bbbbbb'
-    property bool abbreviateThousands: false   // for scales like RPM 0..8000 show 0..8
-    property bool showValueInThousands: false  // center value division
+    property bool abbreviateThousands: false
+    property bool showValueInThousands: false
     property bool showCenterValue: true
     property bool showCenterLabel: true
-    property real labelOffsetFactor: 0.9 // kept for backwards compatibility (unused now)
-    property real labelDistance: 42       // px distance inward from end of major tick
+    property real labelOffsetFactor: 0.9
+    property real labelDistance: 42
     property bool drawCanvasLabels: true
     property bool useTextLabels: false
 
-    // Optional inner progress arc (biały pasek rosnący od 0 do value)
     property bool showInnerProgress: false
     property color innerProgressColor: 'white'
-    // Thickness and radius (tunable per gauge); defaults relative to ringWidth and radius
     property real innerProgressWidth: ringWidth * 0.33
-    // Position deeper inside tarczy (0.0..radius); by default ~3/4 w głąb pierścienia
     property real innerProgressRadius: radius - ringWidth * 1.10
     property bool innerProgressRoundCap: true
-    // Glow parameters (domyślnie korzystają z marker* jeśli nie nadpisane)
     property bool innerProgressGlow: true
     property bool innerProgressWhiteGlow: true
     property real innerProgressGlowSpreadPx: markerGlowSpreadPx * 0.85
@@ -59,40 +52,29 @@ Item {
     property int innerProgressWhiteGlowPasses: markerInnerGlowPasses
     property real innerProgressWhiteGlowMaxAlpha: markerInnerGlowMaxAlpha * 1.05
     property real innerProgressWhiteGlowFalloffPower: markerInnerGlowFalloffPower
-    // Kompozycja addytywna dla glows (lighter = bardziej świetlisty). Wyłącz jeśli GPU zachowuje się źle.
     property bool innerProgressAdditive: true
 
-    // Dynamic zone-based colors (white -> warnColor -> redlineColor)
-    // Używane tylko dla białych elementów (rdzeń + białe halo) markera i inner progress
     property color markerCoreEffectiveColor: (value >= redFrom ? redlineColor : (warnFrom >= 0 && value >= warnFrom && value <= warnTo ? warnColor : markerCoreColor))
     property color markerInnerGlowEffectiveColor: (value >= redFrom ? redlineColor : (warnFrom >= 0 && value >= warnFrom && value <= warnTo ? warnColor : markerInnerGlowColor))
     // Inner progress korzysta z tych samych reguł
     property color innerProgressCoreEffectiveColor: markerCoreEffectiveColor
     property color innerProgressWhiteGlowEffectiveColor: markerInnerGlowEffectiveColor
 
-    // Optional smoothing mode for high-jitter sources (set per instance)
     property bool smoothNeedle: false
-    // Separate smoothing for marker (when showNeedle == false)
     property bool smoothMarker: true
-    // Internal smoothed marker value
     property real markerSmoothedValue: value
-    // Velocity in value units per second for SmoothedAnimation (tunable)
     property real markerSmoothVelocity: (max - min) / 0.25   // reach full scale in ~250ms
     SmoothedAnimation on markerSmoothedValue {
-        // 'enabled' is not a valid property for SmoothedAnimation; control via running
         velocity: root.markerSmoothVelocity
         running: root.smoothMarker && !root.showNeedle
     }
-    // Toggle between classic needle and sweep arc
     property bool showNeedle: true
-    property color valueArcColor: needleColor // legacy (unused after marker change)
-    property real valueArcThickness: Math.min(ringWidth * 0.65, 20) // legacy
-    // Marker (radial bar) properties when showNeedle == false
+    property color valueArcColor: needleColor
+    property real valueArcThickness: Math.min(ringWidth * 0.65, 20)
     property color markerColor: needleColor
     property real markerInnerRadius: radius * 0.32
     property real markerOuterRadius: radius - ringWidth
     property real markerWidth: Math.max(3, radius * 0.025) // doubled thickness
-        // Visual enhancement properties for marker mode
         property bool markerGradient: true
         property color markerColorEnd: Qt.rgba(
             Math.min(1, (Qt.rgba(markerColor.r, markerColor.g, markerColor.b, markerColor.a).r * 0.85) + 0.05),
@@ -102,36 +84,35 @@ Item {
         property bool markerGlow: true
         property real markerGlowAlpha: 0.28
         property color markerBorderColor: Qt.rgba(0,0,0,0.55)
-    // White pointer mode (biała kreska z czerwoną poświatą) – domyślnie off, żeby nie psuć innych wskaźników
     property bool markerWhiteNeedle: false
     property color markerCoreColor: 'white'
-    property color markerGlowColor: redlineColor   // poświata
+    property color markerGlowColor: redlineColor
     property int markerGlowPasses: 4
     property real markerGlowMaxAlpha: 0.18
-    property real markerGlowSpreadPx: 4.5          // przyrost szerokości halo na pass
-    property bool markerSharpTip: true             // jeśli true rysuje trójkątny czubek
-    property real markerTaperStartFraction: 0.70   // od ilu % długości zaczyna się zwężanie (0..1)
-    property real markerTipCurveFactor: 0.55       // 0..1 jak bardzo zaokrąglone boki czubka (0=ostry trójkąt, 0.5..0.7=łagodny)
-    property bool markerGlowClip: true             // przycina poświatę aby nie wychodziła poza długość markera
-    property real markerGlowFalloffPower: 1.4      // kształt zaniku (większe = szybsze wygaszanie na zewnątrz)
-    property real markerGlowInwardFactor: 1.25     // mnożnik jak daleko halo wchodzi do środka względem expansion
-    property real markerGlowExtraInward: 6         // stały dodatkowy pikselowy zasięg do środka niezależny od expansion
-    property bool markerRoundBase: true            // zaokrąglone wewnętrzne (bliżej centrum) zakończenie markera
-    property bool markerRoundOuterTip: false       // zaokrąglony zewnętrzny koniec (zamiast ostrego czubka)
+    property real markerGlowSpreadPx: 4.5
+    property bool markerSharpTip: true
+    property real markerTaperStartFraction: 0.70
+    property real markerTipCurveFactor: 0.55
+    property bool markerGlowClip: true
+    property real markerGlowFalloffPower: 1.4
+    property real markerGlowInwardFactor: 1.25
+    property real markerGlowExtraInward: 6
+    property bool markerRoundBase: true
+    property bool markerRoundOuterTip: false
     // Dodatkowe wewnętrzne białe halo (delikatne rozmycie bieli zanim przejdzie w czerwone)
     property bool markerInnerWhiteGlow: true
     property color markerInnerGlowColor: 'white'
-    property int markerInnerGlowPasses: 5           // więcej warstw dla płynniejszego gradientu
-    property real markerInnerGlowMaxAlpha: 0.38     // mocniejsze – bardziej rzeczywiście białe
-    property real markerInnerGlowSpreadPx: 7.5      // odrobinę większe
-    property real markerInnerGlowFalloffPower: 1.05 // wolniejszy zanik = jaśniejszy środek
+    property int markerInnerGlowPasses: 5
+    property real markerInnerGlowMaxAlpha: 0.38
+    property real markerInnerGlowSpreadPx: 7.5
+    property real markerInnerGlowFalloffPower: 1.05
     property real markerInnerGlowInwardFactor: 1.1
     property real markerInnerGlowExtraInward: 4
 
     property color needleColor: '#ff3333'
-    property real needleTipInset: 14       // distance from outer radius to needle tip
-    property real needleTail: 60           // tail length behind center (px)
-    property real needleThickness: 14      // total thickness of needle body (px)
+    property real needleTipInset: 14
+    property real needleTail: 60
+    property real needleThickness: 14
 
     property real radius: Math.min(width, height)/2 * 0.95
 
@@ -153,7 +134,6 @@ Item {
     onWarnToChanged: scaleCanvas.requestPaint()
     // Inner progress repaint handlers merged with bottom section to avoid duplicates
 
-    // SCALE CANVAS
     Canvas {
         id: scaleCanvas
         anchors.fill: parent
@@ -226,7 +206,6 @@ Item {
         }
     }
 
-    // INNER PROGRESS ARC (drawn above background arc, below ticks/needle overlay)
     Canvas {
         id: innerProgressCanvas
         anchors.fill: parent
@@ -292,7 +271,6 @@ Item {
         }
     }
 
-    // TEXT LABELS (WHEN useTextLabels TRUE)
     Repeater {
         id: labelsRepeater
         model: useTextLabels ? Math.floor((root.max - root.min)/root.majorStep) + 1 : 0
@@ -311,7 +289,6 @@ Item {
         }
     }
 
-    // CENTER VALUE
     Text {
         id: centerValue
         visible: root.showCenterValue
@@ -323,7 +300,6 @@ Item {
         font.bold: true
         renderType: Text.NativeRendering
     }
-    // CENTER LABEL
     Text {
         id: centerLabel
         visible: root.showCenterLabel && root.label.length > 0
@@ -337,7 +313,6 @@ Item {
         renderType: Text.NativeRendering
     }
 
-    // NEEDLE (simplified red line pointer with optional smoothing)
     Loader {
         id: needleLoader
         active: root.showNeedle
@@ -395,7 +370,6 @@ Item {
         }
     }
 
-    // VALUE MARKER (radial bar) when showNeedle == false
     Canvas {
         id: markerCanvas
         anchors.fill: parent

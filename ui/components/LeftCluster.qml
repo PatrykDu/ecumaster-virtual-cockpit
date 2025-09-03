@@ -1,5 +1,4 @@
 import QtQuick 2.15
-// LEFT CLUSTER ROOT
 Item {
     id: root
     property real base: 110
@@ -18,7 +17,7 @@ Item {
     property var menuItems: ["suspension", "exhaust", "reset trip", "settings"]
     property int menuIndex: 0
     property bool menuActive: false
-    property int inactivityMs: 12000  // unified inactivity timeout (ms) for both main menu and submenus
+    property int inactivityMs: 12000
     property bool _suspensionAutoExit: false
     property bool _exhaustAutoExit: false
         
@@ -35,22 +34,20 @@ Item {
     property bool settingsHeaderVisible: false
     property bool settingsTransitionActive: false
     
-    property real menuFade: 1    // 1 visible, 0 hidden
-    property real submenuFade: 0 // 0 hidden, 1 visible
+    property real menuFade: 1
+    property real submenuFade: 0
     
     property bool frameHideOverride: false
 
-    property bool menuClosing: false     // true while fading out main menu
-    property bool clockRaised: false     // controls clock vertical position (replaces direct menuActive dependency)
+    property bool menuClosing: false
+    property bool clockRaised: false
 
     
-    property real slotSpacing: base * 0.42   // vertical distance between consecutive items
+    property real slotSpacing: base * 0.42
     property real selectedFont: base * 0.30
     property real dimFont: base * 0.16
     property int animMs: 180
-    // Duration (ms) for menu fade in/out
     property int menuFadeDuration: 420
-    // Shorter fade when exiting back to clock
     property int menuFadeOutShortDuration: 260
 
     FontMetrics { id: menuFontMetrics; font.pixelSize: root.selectedFont }
@@ -65,24 +62,21 @@ Item {
     onMenuIndexChanged: if (menuItems.length > 0) { selectedTextWidth = menuFontMetrics.advanceWidth(menuItems[menuIndex]); frame.targetWidth = (selectedTextWidth>0?selectedTextWidth:base)+base*0.36 }
     onMenuActiveChanged: {
         if (menuActive && !inSubmenu) {
-            // Opening main menu: raise clock immediately, fade items in
             clockRaised = true;
             menuClosing = false;
             menuFadeIn.stop(); menuFadeOut.stop();
             menuFade = 0;
             menuFadeIn.from = 0; menuFadeIn.to = 1; menuFadeIn.start();
         } else if (!menuActive && !inSubmenu) {
-            // Closing main menu: fade out first, then slide clock down
             menuClosing = true;
             menuFadeIn.stop(); menuFadeOut.stop();
-            if (menuFade < 1) menuFade = 1; // ensure start at visible
+            if (menuFade < 1) menuFade = 1;
             menuFadeOut.from = menuFade; menuFadeOut.to = 0; menuFadeOut.start();
         }
     }
 
     
     property date now: new Date()
-    // CLOCK
     Timer { interval: 1000; running: true; repeat: true; onTriggered: root.now = new Date() }
     Timer {
         id: inactivityTimer
@@ -130,7 +124,6 @@ Item {
     }
 
     
-    // MENU LIST
     Item {
         id: menuLayer
         anchors.fill: parent
@@ -183,7 +176,6 @@ Item {
     }
 
     
-    // SUBMENUS
     Item {
         id: submenuLayer
         anchors.fill: parent
@@ -195,7 +187,6 @@ Item {
     readonly property real valRL: rl
     readonly property real valRR: rr
 
-    // SUSPENSION SUBMENU
     Item {
             id: suspensionContainer
             anchors.horizontalCenter: parent.horizontalCenter
@@ -324,7 +315,6 @@ Item {
             }
         }
     
-    // EXHAUST SUBMENU
     Rectangle {
             id: exhaustContainer
             anchors.horizontalCenter: parent.horizontalCenter
@@ -359,7 +349,6 @@ Item {
                 scale: 1
             }
         }
-    // EXHAUST LABEL
     Text {
             id: exhaustLabel
             text: root.exhaustState ? 'flaps open' : 'flaps closed'
@@ -455,7 +444,7 @@ Item {
             settingsFly.opacity = 1;
             settingsFly.visible = true;
             
-            var scaleTarget = (base * 0.20) / root.selectedFont; // header font / selected font
+            var scaleTarget = (base * 0.20) / root.selectedFont;
             
             frameHideOverride = true;
             
@@ -561,8 +550,8 @@ Item {
         var nv = cur + delta;
         if (nv < wheelMin) nv = wheelMin; if (nv > wheelMax) nv = wheelMax;
         if (nv === cur) { submenuInactivityTimer.restart(); return; }
-        root[p] = nv; // update local
-        if (windowRoot) windowRoot[p] = nv; // update parent
+    root[p] = nv;
+    if (windowRoot) windowRoot[p] = nv;
         submenuInactivityTimer.restart();
     
         if (typeof TEL !== 'undefined' && TEL.saveSuspension) {
@@ -573,7 +562,6 @@ Item {
         }
     }
 
-    // NAVIGATION EVENTS
     Connections {
         target: TEL
         function onNavUpEvent() {
@@ -582,11 +570,10 @@ Item {
                     if (root.wheelEditIndex >= 0) {
                         adjustWheel(+1);
                     } else {
-                        // enter edit mode on first wheel instead of moving main menu
                         root.wheelEditIndex = 0;
                         submenuInactivityTimer.restart();
                     }
-                    return; // never fall through to main menu while in submenu
+                    return;
                 } else if (root.currentSubmenu === 'exhaust') {
                     toggleExhaust();
                     return;
@@ -595,7 +582,7 @@ Item {
                     submenuInactivityTimer.restart();
                     return;
                 }
-                return; // safety
+                return;
             }
             if (!root.menuActive) {
                 root.menuActive = true;
@@ -611,10 +598,10 @@ Item {
                     if (root.wheelEditIndex >= 0) {
                         adjustWheel(-1);
                     } else {
-                        root.wheelEditIndex = 0; // start editing on first wheel
+                        root.wheelEditIndex = 0;
                         submenuInactivityTimer.restart();
                     }
-                    return; // block main menu movement
+                    return;
                 } else if (root.currentSubmenu === 'exhaust') {
                     toggleExhaust();
                     return;
@@ -623,7 +610,7 @@ Item {
                     submenuInactivityTimer.restart();
                     return;
                 }
-                return; // safety
+                return;
             }
             if (!root.menuActive) {
                 root.menuActive = true;
@@ -703,13 +690,12 @@ Item {
             if (typeof TEL !== 'undefined' && TEL.saveTrip) {
                 TEL.saveTrip(0.0); 
             }
-            if (windowRoot) windowRoot.tripValue = 0.0; // immediate UI update
+            if (windowRoot) windowRoot.tripValue = 0.0;
             if (windowRoot && windowRoot.animateTripReset) windowRoot.animateTripReset();
         } catch(e) {}
         inactivityTimer.restart();
     }
 
-    // SELECTION CONFIRM ANIMATION
     SequentialAnimation {
         id: selectionConfirm
         running: false
@@ -740,7 +726,6 @@ Item {
         }
     }
 
-    // FADE ANIMATIONS (MENU / SUBMENU)
     NumberAnimation { id: menuFadeOut; target: root; property: 'menuFade'; duration: menuClosing ? menuFadeOutShortDuration : menuFadeDuration; easing.type: Easing.OutCubic; onStopped: {
             if (_pendingSubmenuEntry) {
                 _pendingSubmenuEntry = false;
@@ -748,7 +733,6 @@ Item {
                 submenuFadeIn.from = 0; submenuFadeIn.to = 1; submenuFadeIn.start();
             }
             if (menuClosing) {
-                // Now drop clock after fade finished
                 clockRaised = false;
                 menuClosing = false;
             }
@@ -778,7 +762,6 @@ Item {
     property string _pendingSubmenuExit: ''
 
         
-    // SETTINGS SUBMENU
     Item {
             id: settingsContainer
             anchors.fill: submenuLayer
@@ -865,7 +848,7 @@ Item {
                 text: 'settings'
                 anchors.top: parent.top
                 anchors.horizontalCenter: parent.horizontalCenter
-                anchors.horizontalCenterOffset: -100 // shift header left
+                anchors.horizontalCenterOffset: -100
                 anchors.topMargin: base * 0.2 + settingsContainer.verticalShift
                 font.pixelSize: base * 0.20
                 color: '#cccccc'
@@ -875,7 +858,6 @@ Item {
         }
 
     
-    // SETTINGS FLYING LABEL (TRANSITION)
     Text {
         id: settingsFly
         text: 'settings'
@@ -889,7 +871,6 @@ Item {
     }
 
     
-    // SETTINGS ENTER ANIMATION
     ParallelAnimation {
         id: settingsEnterAnim
         running: false
@@ -909,7 +890,6 @@ Item {
         property alias animY: settingsEnterAnim_animY
         property alias animScale: settingsEnterAnim_animScale
     }
-    // SETTINGS OPTIONS FADE-IN
     ParallelAnimation {
         id: settingsOptionsAnim
         running: false
@@ -918,7 +898,6 @@ Item {
         PropertyAnimation { target: settingsOptions; property: 'opacity'; from: 0; to: 1; duration: 200; easing.type: Easing.OutCubic }
     }
     
-    // SETTINGS OPTIONS EXIT (TO HEADER)
     ParallelAnimation {
         id: settingsOptionsExitAnim
         running: false
@@ -927,7 +906,6 @@ Item {
             settingsOptions.scale = 1;
         }
         onFinished: {
-            // Only now hide the header so it stays visible during the options' exit animation
             settingsHeaderVisible = false;
             
             var headerPos = settingsHeader.mapToItem(root, settingsHeader.width/2, settingsHeader.height/2);
@@ -952,7 +930,6 @@ Item {
         PropertyAnimation { target: settingsOptions; property: 'opacity'; from: 1; to: 0; duration: 240; easing.type: Easing.OutCubic }
     }
     
-    // SETTINGS EXIT ANIMATION (HEADER BACK TO FRAME)
     ParallelAnimation {
         id: settingsExitAnim
         running: false
