@@ -17,6 +17,7 @@ Item {
     property color warnColor: '#e6c400'
     property string label: ""
 
+    
     property real ringWidth: 26
     property real tickMajorLen: 50
     property real tickMinorLen: 28
@@ -37,6 +38,7 @@ Item {
     property bool drawCanvasLabels: true
     property bool useTextLabels: false
 
+    
     property bool showInnerProgress: false
     property color innerProgressColor: 'white'
     property real innerProgressWidth: ringWidth * 0.33
@@ -44,21 +46,29 @@ Item {
     property bool innerProgressRoundCap: true
     property bool innerProgressGlow: true
     property bool innerProgressWhiteGlow: true
-    property real innerProgressGlowSpreadPx: markerGlowSpreadPx * 0.85
-    property int innerProgressGlowPasses: markerGlowPasses
-    property real innerProgressGlowMaxAlpha: markerGlowMaxAlpha * 1.15
-    property real innerProgressGlowFalloffPower: markerGlowFalloffPower
-    property real innerProgressWhiteGlowSpreadPx: markerInnerGlowSpreadPx * 0.90
-    property int innerProgressWhiteGlowPasses: markerInnerGlowPasses
-    property real innerProgressWhiteGlowMaxAlpha: markerInnerGlowMaxAlpha * 1.05
-    property real innerProgressWhiteGlowFalloffPower: markerInnerGlowFalloffPower
+    
+    property real innerProgressGlowSpreadPx: 4.0
+    property int innerProgressGlowPasses: 4
+    property real innerProgressGlowMaxAlpha: 0.21
+    property real innerProgressGlowFalloffPower: 1.4
+    property real innerProgressWhiteGlowSpreadPx: 6.0
+    property int innerProgressWhiteGlowPasses: 5
+    property real innerProgressWhiteGlowMaxAlpha: 0.38
+    property real innerProgressWhiteGlowFalloffPower: 1.05
     property bool innerProgressAdditive: true
 
-    property color markerCoreEffectiveColor: (value >= redFrom ? redlineColor : (warnFrom >= 0 && value >= warnFrom && value <= warnTo ? warnColor : markerCoreColor))
-    property color markerInnerGlowEffectiveColor: (value >= redFrom ? redlineColor : (warnFrom >= 0 && value >= warnFrom && value <= warnTo ? warnColor : markerInnerGlowColor))
-    // Inner progress korzysta z tych samych reguł
-    property color innerProgressCoreEffectiveColor: markerCoreEffectiveColor
-    property color innerProgressWhiteGlowEffectiveColor: markerInnerGlowEffectiveColor
+    
+    property real markerStartRadius: (root.showInnerProgress ? innerProgressRadius : (radius * 0.30))
+    
+    property real markerEndRadius: radius - ringWidth
+    
+    property real markerBaseWidth: Math.max(6, radius * 0.065)
+    
+    property color markerColor: '#ff3333'
+    property color markerCoreEffectiveColor: (value >= redFrom ? redlineColor : (warnFrom >= 0 && value >= warnFrom && value <= warnTo ? warnColor : markerColor))
+    
+    property color innerProgressCoreEffectiveColor: (value >= redFrom ? redlineColor : (warnFrom >= 0 && value >= warnFrom && value <= warnTo ? warnColor : innerProgressColor))
+    property color innerProgressWhiteGlowEffectiveColor: innerProgressCoreEffectiveColor
 
     property bool smoothNeedle: false
     property bool smoothMarker: true
@@ -71,43 +81,7 @@ Item {
     property bool showNeedle: true
     property color valueArcColor: needleColor
     property real valueArcThickness: Math.min(ringWidth * 0.65, 20)
-    property color markerColor: needleColor
-    property real markerInnerRadius: radius * 0.32
-    property real markerOuterRadius: radius - ringWidth
-    property real markerWidth: Math.max(3, radius * 0.025) // doubled thickness
-        property bool markerGradient: true
-        property color markerColorEnd: Qt.rgba(
-            Math.min(1, (Qt.rgba(markerColor.r, markerColor.g, markerColor.b, markerColor.a).r * 0.85) + 0.05),
-            Math.min(1, (Qt.rgba(markerColor.r, markerColor.g, markerColor.b, markerColor.a).g * 0.85) + 0.05),
-            Math.min(1, (Qt.rgba(markerColor.r, markerColor.g, markerColor.b, markerColor.a).b * 0.85) + 0.05),
-            1)
-        property bool markerGlow: true
-        property real markerGlowAlpha: 0.28
-        property color markerBorderColor: Qt.rgba(0,0,0,0.55)
-    property bool markerWhiteNeedle: false
-    property color markerCoreColor: 'white'
-    property color markerGlowColor: redlineColor
-    property int markerGlowPasses: 4
-    property real markerGlowMaxAlpha: 0.18
-    property real markerGlowSpreadPx: 4.5
-    property bool markerSharpTip: true
-    property real markerTaperStartFraction: 0.70
-    property real markerTipCurveFactor: 0.55
-    property bool markerGlowClip: true
-    property real markerGlowFalloffPower: 1.4
-    property real markerGlowInwardFactor: 1.25
-    property real markerGlowExtraInward: 6
-    property bool markerRoundBase: true
-    property bool markerRoundOuterTip: false
-    // Dodatkowe wewnętrzne białe halo (delikatne rozmycie bieli zanim przejdzie w czerwone)
-    property bool markerInnerWhiteGlow: true
-    property color markerInnerGlowColor: 'white'
-    property int markerInnerGlowPasses: 5
-    property real markerInnerGlowMaxAlpha: 0.38
-    property real markerInnerGlowSpreadPx: 7.5
-    property real markerInnerGlowFalloffPower: 1.05
-    property real markerInnerGlowInwardFactor: 1.1
-    property real markerInnerGlowExtraInward: 4
+    
 
     property color needleColor: '#ff3333'
     property real needleTipInset: 14
@@ -381,168 +355,18 @@ Item {
             var frac = (useVal - root.min)/(root.max - root.min)
             if (frac < 0) frac = 0; if (frac > 1) frac = 1
             var ang = (root.startAngle + frac*(root.endAngle-root.startAngle) + root.orientationOffset) * Math.PI/180.0
-            var innerR = root.markerInnerRadius
-            var outerR = root.markerOuterRadius
-            if (outerR < innerR) { var tmp = outerR; outerR = innerR; innerR = tmp }
+            var baseR = root.markerStartRadius
+            var tipR = root.markerEndRadius
+            if (tipR < baseR) { var tmp = tipR; tipR = baseR; baseR = tmp }
+            var halfW = root.markerBaseWidth / 2
             ctx.save(); ctx.rotate(ang)
-                var w = root.markerWidth
-                if (root.markerWhiteNeedle) {
-                    // Hybrid shape: prosty pasek do ~taperStart, potem zwężenie do ostrego czubka
-                    var baseHalf = w/2
-                    var useTaper = root.markerSharpTip && !root.markerRoundOuterTip
-                    var taperFrac = useTaper ? root.markerTaperStartFraction : 1.0
-                    if (taperFrac < 0.05) taperFrac = 0.05
-                    if (taperFrac > 0.95) taperFrac = 0.95
-                    var taperX = innerR + (outerR - innerR) * taperFrac
-                    function buildPointerPath(innerShift) {
-                        // innerShift (>=0) allows glow to extend further inward than white core
-                        ctx.beginPath()
-                        if (root.markerRoundOuterTip) {
-                            var innerStartR = innerR - (innerShift||0)
-                            var bodyEnd = outerR - baseHalf // tak aby łuk sięgał do outerR
-                            if (bodyEnd < innerStartR + 0.5) bodyEnd = innerStartR + 0.5
-                            // prostokątny korpus
-                            ctx.moveTo(innerStartR, -baseHalf)
-                            ctx.lineTo(bodyEnd, -baseHalf)
-                            // półkole zewnętrzne
-                            ctx.arc(bodyEnd, 0, baseHalf, -Math.PI/2, Math.PI/2, false)
-                            ctx.lineTo(innerStartR, baseHalf)
-                            if (root.markerRoundBase) {
-                                ctx.arc(innerStartR, 0, baseHalf, Math.PI/2, -Math.PI/2, true)
-                            }
-                            ctx.closePath(); return;
-                        }
-                        if (useTaper && taperFrac < 0.999) {
-                            var innerStart = innerR - (innerShift||0)
-                            // Start górą prostego odcinka, potem do taperX
-                            ctx.moveTo(innerStart + (markerRoundBase ? 0 : 0), -baseHalf)
-                            ctx.lineTo(taperX, -baseHalf)
-                            var tipLen = outerR - taperX
-                            if (tipLen < 2) {
-                                ctx.lineTo(outerR, -baseHalf)
-                                ctx.lineTo(outerR, baseHalf)
-                                ctx.lineTo(taperX, baseHalf)
-                            } else {
-                                var cf = Math.max(0, Math.min(1, root.markerTipCurveFactor))
-                                var ctrlX = taperX + tipLen * cf
-                                var ctrlYOffset = baseHalf * 0.9
-                                ctx.quadraticCurveTo(ctrlX, -ctrlYOffset, outerR, 0)
-                                ctx.quadraticCurveTo(ctrlX, ctrlYOffset, taperX, baseHalf)
-                            }
-                            ctx.lineTo(innerStart, baseHalf)
-                            if (root.markerRoundBase) {
-                                // półkole przesunięte do środka (powiększa długość o baseHalf do wewnątrz)
-                                ctx.arc(innerStart - baseHalf, 0, baseHalf, Math.PI/2, -Math.PI/2, true)
-                            }
-                        } else {
-                            if (root.markerSharpTip) {
-                                var cf2 = Math.max(0, Math.min(1, root.markerTipCurveFactor))
-                                var ctrlX2 = innerR + (outerR - innerR) * cf2
-                                var innerStart2 = innerR - (innerShift||0)
-                                ctx.moveTo(innerStart2, -baseHalf)
-                                ctx.quadraticCurveTo(ctrlX2, -baseHalf*0.9, outerR, 0)
-                ctx.quadraticCurveTo(ctrlX2, baseHalf*0.9, innerStart2, baseHalf)
-                                if (root.markerRoundBase) {
-                                    ctx.arc(innerStart2 - baseHalf, 0, baseHalf, Math.PI/2, -Math.PI/2, true)
-                                }
-                            } else {
-                var innerStart3 = innerR - (innerShift||0)
-                ctx.moveTo(innerStart3, -baseHalf)
-                ctx.lineTo(outerR, -baseHalf)
-                ctx.lineTo(outerR, baseHalf)
-                ctx.lineTo(innerStart3, baseHalf)
-                if (root.markerRoundBase) {
-                    ctx.arc(innerStart3 - baseHalf, 0, baseHalf, Math.PI/2, -Math.PI/2, true)
-                }
-                            }
-                        }
-                        ctx.closePath()
-                    }
-                    function buildPointerPathWithHalf(h) {
-                        var savedBase = baseHalf
-                        baseHalf = h
-            buildPointerPath(0)
-                        baseHalf = savedBase
-                    }
-                    // Poświata wypełniana poszerzonymi kształtami (dopasowana do czubka)
-                    if (root.markerGlow) {
-                        var passes2 = Math.max(1, root.markerGlowPasses)
-                        // Rysujemy od najbardziej zewnętrznej warstwy do wewnętrznej.
-                        for (var gp = passes2; gp >= 1; gp--) {
-                            var outerFrac = gp / passes2         // 1..(1/passes)
-                            var expansion = root.markerGlowSpreadPx * outerFrac
-                            var innerFrac = 1 - outerFrac        // 0 przy zewnętrznej, ~1 przy wewnętrznej
-                            var alphaFrac = Math.pow(innerFrac, root.markerGlowFalloffPower)
-                            if (alphaFrac <= 0) continue
-                            // Also expand inward by same expansion * 0.6 to get halo inside
-                            var inward = expansion * root.markerGlowInwardFactor + root.markerGlowExtraInward
-                            var savedBase2 = baseHalf
-                            baseHalf = savedBase2 + expansion
-                            buildPointerPath(inward)
-                            baseHalf = savedBase2
-                            ctx.fillStyle = root.markerGlowColor
-                            ctx.globalAlpha = root.markerGlowMaxAlpha * alphaFrac
-                            ctx.fill()
-                        }
-                        ctx.globalAlpha = 1.0
-                        // Wewnętrzne białe halo (rysujemy po czerwonym aby biały "rdzeń rozmyty" przykrył środek)
-                        if (root.markerInnerWhiteGlow) {
-                            var passesW = Math.max(1, root.markerInnerGlowPasses)
-                            for (var wp = passesW; wp >= 1; wp--) {
-                                var wOuterFrac = wp / passesW
-                                var wExpansion = root.markerInnerGlowSpreadPx * wOuterFrac
-                                var wInnerFrac = 1 - wOuterFrac
-                                var wAlphaFrac = Math.pow(wInnerFrac, root.markerInnerGlowFalloffPower)
-                                if (wAlphaFrac <= 0) continue
-                                var wInward = wExpansion * root.markerInnerGlowInwardFactor + root.markerInnerGlowExtraInward
-                                var savedBaseW = baseHalf
-                                baseHalf = savedBaseW + wExpansion
-                                buildPointerPath(wInward)
-                                baseHalf = savedBaseW
-                                ctx.fillStyle = root.markerInnerGlowEffectiveColor
-                                ctx.globalAlpha = root.markerInnerGlowMaxAlpha * wAlphaFrac
-                                ctx.fill()
-                            }
-                            ctx.globalAlpha = 1.0
-                        }
-                    }
-                    // Rdzeń biały
-                    buildPointerPath(0)
-                    ctx.fillStyle = root.markerCoreEffectiveColor
-                    ctx.fill()
-                    // Cienka linia wewnętrzna
-                    if (w > 3) {
-                        ctx.strokeStyle = 'rgba(0,0,0,0.32)'
-                        ctx.lineWidth = 1
-                        ctx.beginPath();
-                        ctx.moveTo(innerR + 1.0, 0)
-                        ctx.lineTo(taperX - 0.6, 0)
-                        ctx.stroke()
-                    }
-                } else {
-                    var baseColor = (root.value >= root.redFrom ? root.redlineColor : root.markerColor)
-                    if (root.markerGlow) {
-                        ctx.globalAlpha = root.markerGlowAlpha
-                        ctx.fillStyle = baseColor
-                        for (var g=0; g<3; g++) {
-                            ctx.beginPath(); ctx.rect(innerR - g*1.5, -(w/2) - g*1.2, (outerR - innerR) + g*3.0, w + g*2.4); ctx.fill()
-                        }
-                        ctx.globalAlpha = 1.0
-                    }
-                    if (root.markerGradient) {
-                        var grd = ctx.createLinearGradient(innerR,0, outerR,0)
-                        grd.addColorStop(0, baseColor)
-                        grd.addColorStop(1, (root.value >= root.redFrom ? root.redlineColor : root.markerColorEnd))
-                        ctx.fillStyle = grd
-                    } else {
-                        ctx.fillStyle = baseColor
-                    }
-                    ctx.beginPath(); ctx.rect(innerR, -w/2, (outerR - innerR), w); ctx.fill()
-                    ctx.strokeStyle = root.markerBorderColor
-                    ctx.lineWidth = 1
-                    ctx.beginPath(); ctx.moveTo(innerR, -w/2); ctx.lineTo(outerR, -w/2); ctx.stroke()
-                    ctx.beginPath(); ctx.moveTo(innerR,  w/2); ctx.lineTo(outerR,  w/2); ctx.stroke()
-                }
+                ctx.beginPath()
+                ctx.moveTo(baseR, -halfW)
+                ctx.lineTo(tipR, 0)
+                ctx.lineTo(baseR,  halfW)
+                ctx.closePath()
+                ctx.fillStyle = (root.value >= root.redFrom ? root.redlineColor : root.markerColor)
+                ctx.fill()
             ctx.restore()
         }
         Component.onCompleted: if (!root.showNeedle) requestPaint()

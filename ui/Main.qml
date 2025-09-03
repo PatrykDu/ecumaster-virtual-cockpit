@@ -298,29 +298,16 @@ Window {
                 innerProgressColor: 'white'
                 innerProgressWidth: width * 0.012
                 innerProgressRadius: radius - ringWidth * 1.55
-                innerProgressGlowSpreadPx: markerGlowSpreadPx * 0.70
-                innerProgressGlowPasses: 8
-                innerProgressGlowMaxAlpha: markerGlowMaxAlpha * 0.85
-                innerProgressWhiteGlowSpreadPx: markerInnerGlowSpreadPx * 0.75
-                innerProgressWhiteGlowPasses: 6
-                innerProgressWhiteGlowMaxAlpha: markerInnerGlowMaxAlpha * 0.90
+                innerProgressGlow: false
+                innerProgressWhiteGlow: false
                 innerProgressRoundCap: false
-                markerWhiteNeedle: true
-                markerSharpTip: true
-                markerGlow: true
-                markerGlowPasses: 10
-                markerGlowMaxAlpha: 0.30
-                markerGlowSpreadPx: 24
-                markerGlowFalloffPower: 1.25
-                markerGlowInwardFactor: 1.55
-                markerGlowExtraInward: 10
-                markerWidth: width * 0.010
-                markerInnerRadius: radius * 0.68
-                markerOuterRadius: radius - ringWidth - width * 0.004
-                markerTaperStartFraction: 0.63
+                markerStartRadius: radius * 0.42
+                markerEndRadius: radius - ringWidth - width * 0.004
+                markerBaseWidth: width * 0.045
+                markerColor: '#ff3333'
                 redFrom: 5994
                 redTo: 7000
-                label: "" // hide label here
+                label: ""
                 majorStep: 1000
                 minorStep: 500
                 abbreviateThousands: true
