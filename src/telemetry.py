@@ -393,8 +393,8 @@ class Telemetry(QObject):
 
         if os.environ.get("DEVELOP_MODE") == "2":
             water_temp = int(40 + tri(t * 0.85, 14.0) * (140 - 40))
-            # Oil temp limited to 29-81°C in demo mode 2
-            oil_temp   = int(29 + tri(t * 0.80 + 1.3, 15.0) * (81 - 29))
+            # Oil temp widened to 29-90°C (was 81) for full dynamic redline curve
+            oil_temp   = int(29 + tri(t * 0.80 + 1.3, 15.0) * (90 - 29))
             charging_volt = 11.0 + tri(t * 0.95, 11.0) * 5.0
             oil_press = tri(t * 1.10, 7.5) * 8.0
             afr_val = 10.0 + tri(t * 0.75 + 0.4, 13.0) * 8.0
