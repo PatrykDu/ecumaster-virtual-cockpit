@@ -394,13 +394,8 @@ Window {
                     onPaint: {
                         var ctx = getContext('2d'); ctx.reset();
                         var cx = width/2, cy = height/2, r = width/2; ctx.translate(cx, cy)
-                        var grad = ctx.createRadialGradient(0,0,r*0.05,0,0,r)
-                        // Multi‑stop: dark center -> bright mid ring -> darker outer fade
-                        grad.addColorStop(0.0,'#1e1600')
-                        grad.addColorStop(0.45,'#e2b600')
-                        grad.addColorStop(0.70,'#614800')
-                        grad.addColorStop(1.0,'#120d00')
-                        ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill()
+                        ctx.fillStyle = '#221b00'
+                        ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill()
                         ctx.lineWidth = r*0.018; ctx.strokeStyle = '#b89000'
                         ctx.beginPath(); ctx.arc(0,0,r*0.965,0,Math.PI*2); ctx.stroke()
                     }
@@ -414,12 +409,8 @@ Window {
                     onPaint: {
                         var ctx = getContext('2d'); ctx.reset();
                         var cx = width/2, cy = height/2, r = width/2; ctx.translate(cx, cy)
-                        var grad = ctx.createRadialGradient(0,0,r*0.05,0,0,r)
-                        grad.addColorStop(0.0,'#220000')
-                        grad.addColorStop(0.45,'#d80000')
-                        grad.addColorStop(0.70,'#5c0000')
-                        grad.addColorStop(1.0,'#170000')
-                        ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill()
+                        ctx.fillStyle = '#240000'
+                        ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill()
                         ctx.lineWidth = r*0.018; ctx.strokeStyle = '#b00000'
                         ctx.beginPath(); ctx.arc(0,0,r*0.965,0,Math.PI*2); ctx.stroke()
                     }
@@ -466,9 +457,8 @@ Window {
             id: leftTurnIndicator
             width: clusterCenter.width * 0.11
             height: width
-            // Final placement: slightly below top of gauge, to its left
             anchors.top: clusterCenter.top
-            anchors.topMargin: 58 // moved down by +30
+            anchors.topMargin: 58
             anchors.right: clusterCenter.left
             anchors.rightMargin: -130
             z: 500
@@ -577,7 +567,7 @@ Window {
     LeftCluster {
             id: leftCluster
             base: clusterCenter.width * 0.15
-            heightOverride: base * 0.3   // lowered height (instead of 3 * base)
+            heightOverride: base * 0.3
             width: base * ratioW + 50
             anchors.verticalCenter: clusterCenter.verticalCenter
             anchors.verticalCenterOffset: -30
