@@ -293,7 +293,6 @@ Window {
                 value: TEL.rpm
                 max: 7000
                 min: 0
-                showNeedle: false
                 showInnerProgress: true
                 innerProgressColor: 'white'
                 innerProgressWidth: width * 0.012
@@ -325,26 +324,21 @@ Window {
                 tickColorMajor: "#e6e6e6"
                 tickColorMinor: "#5f5f5f"
                 redlineColor: "#d62828"
-                needleColor: '#ff4040'
-                needleTipInset: width * 0.015
-                needleTail: width * 0.13
-                needleThickness: width * 0.1
                 warnFrom: 5300
                 warnTo: 6000
                 warnColor: '#ffcc33'
                     property bool demo2: (typeof DEV_MODE_INT !== 'undefined' && DEV_MODE_INT === 2)
                     property int oilTempLocal: TEL ? TEL.oilTemp : 0
                     property int dynRedlineRaw: redlineForOilTemp(oilTempLocal)
-                    property int dynRedline: demo2 ? Math.round(dynRedlineRaw / 50) * 50 : dynRedlineRaw
+                    property int dynRedline: rpmRing.demo2 ? Math.round(dynRedlineRaw / 50) * 50 : dynRedlineRaw
                     onDynRedlineChanged: {
                         if (redFrom !== dynRedline) {
                             redFrom = dynRedline
                             redTo = 7000
                         }
                     }
-                    Behavior on redFrom { enabled: !demo2; NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
-                    Behavior on redTo { enabled: !demo2; NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
-                    smoothNeedle: demo2
+                    Behavior on redFrom { enabled: !rpmRing.demo2; NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+                    Behavior on redTo { enabled: !rpmRing.demo2; NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
             }
             
             Item {

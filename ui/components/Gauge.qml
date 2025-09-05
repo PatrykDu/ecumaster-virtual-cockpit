@@ -70,43 +70,25 @@ Item {
     property color innerProgressCoreEffectiveColor: (value >= redFrom ? redlineColor : (warnFrom >= 0 && value >= warnFrom && value <= warnTo ? warnColor : innerProgressColor))
     property color innerProgressWhiteGlowEffectiveColor: innerProgressCoreEffectiveColor
 
-    property bool smoothNeedle: false
     property bool smoothMarker: true
     property real markerSmoothedValue: value
-    property real markerSmoothVelocity: (max - min) / 0.25   // reach full scale in ~250ms
-    SmoothedAnimation on markerSmoothedValue {
-        velocity: root.markerSmoothVelocity
-        running: root.smoothMarker && !root.showNeedle
-    }
-    property bool showNeedle: true
-    property color valueArcColor: needleColor
-    property real valueArcThickness: Math.min(ringWidth * 0.65, 20)
-    
-
-    property color needleColor: '#ff3333'
-    property real needleTipInset: 14
-    property real needleTail: 60
-    property real needleThickness: 14
+    property real markerSmoothVelocity: (max - min) / 0.25
+    SmoothedAnimation on markerSmoothedValue { velocity: root.markerSmoothVelocity; running: root.smoothMarker }
 
     property real radius: Math.min(width, height)/2 * 0.95
 
     width: 600; height: 600
 
-    onFontSizeLabelsChanged: { scaleCanvas.requestPaint(); labelsRepeater.model = labelsRepeater.model } // force reposition
+    onFontSizeLabelsChanged: { scaleCanvas.requestPaint(); labelsRepeater.model = labelsRepeater.model }
     onLabelOffsetFactorChanged: scaleCanvas.requestPaint()
     onLabelDistanceChanged: scaleCanvas.requestPaint()
     onTickMajorLenChanged: scaleCanvas.requestPaint()
     onTickMinorLenChanged: scaleCanvas.requestPaint()
     onRingWidthChanged: scaleCanvas.requestPaint()
-    onNeedleColorChanged: needleCanvas.requestPaint()
-    onNeedleTipInsetChanged: needleCanvas.requestPaint()
-    onNeedleTailChanged: needleCanvas.requestPaint()
-    onNeedleThicknessChanged: needleCanvas.requestPaint()
-    onRedFromChanged: { scaleCanvas.requestPaint(); if (!showNeedle) markerCanvas.requestPaint() }
-    onRedToChanged: { scaleCanvas.requestPaint(); if (!showNeedle) markerCanvas.requestPaint() }
+    onRedFromChanged: { scaleCanvas.requestPaint(); markerCanvas.requestPaint() }
+    onRedToChanged: { scaleCanvas.requestPaint(); markerCanvas.requestPaint() }
     onWarnFromChanged: scaleCanvas.requestPaint()
     onWarnToChanged: scaleCanvas.requestPaint()
-    // Inner progress repaint handlers merged with bottom section to avoid duplicates
 
     Canvas {
         id: scaleCanvas
@@ -123,13 +105,11 @@ Item {
                 return (root.startAngle + frac*(root.endAngle-root.startAngle) + root.orientationOffset) * Math.PI/180.0
             }
             var arcRadius = root.radius - root.ringWidth/2
-            // background arc
             ctx.lineWidth = root.ringWidth
             ctx.strokeStyle = root.backgroundArcColor
             ctx.beginPath()
             ctx.arc(0,0, arcRadius, angleFor(root.min), angleFor(root.max), false)
             ctx.stroke()
-            // warning (yellow) zone
             if (root.warnTo > root.warnFrom && root.warnFrom >= root.min) {
                 ctx.strokeStyle = root.warnColor
                 ctx.beginPath()
@@ -216,14 +196,13 @@ Item {
                     var expansion = root.innerProgressGlowSpreadPx * outerFrac
                     ctx.lineWidth = root.innerProgressWidth + expansion * 2
                     ctx.lineCap = root.innerProgressRoundCap ? 'round' : 'butt'
-                    ctx.strokeStyle = root.markerGlowColor
+                    ctx.strokeStyle = root.markerCoreEffectiveColor
                     ctx.globalAlpha = root.innerProgressGlowMaxAlpha * alphaFrac
                     ctx.beginPath(); ctx.arc(0,0, r, a0, a1, false); ctx.stroke()
                 }
                 ctx.globalAlpha = 1.0
             }
 
-            // 2) Wewnętrzne białe halo
             if (root.innerProgressWhiteGlow) {
                 var wPasses = Math.max(1, root.innerProgressWhiteGlowPasses)
                 for (var wp = wPasses; wp >= 1; wp--) {
@@ -287,67 +266,10 @@ Item {
         renderType: Text.NativeRendering
     }
 
-    Loader {
-        id: needleLoader
-        active: root.showNeedle
-        sourceComponent: Component {
-            Item {
-                id: needle
-                width: root.width
-                height: root.height
-                property real targetAngle: {
-                    var frac = (root.value - root.min)/(root.max - root.min)
-                    if (frac < 0) frac = 0
-                    if (frac > 1) frac = 1
-                    return (root.startAngle + frac*(root.endAngle-root.startAngle))
-                }
-                property real currentAngle: 0
-                Behavior on currentAngle { enabled: !root.smoothNeedle; NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
-                SmoothedAnimation { id: smoothAnim; target: needle; property: "currentAngle"; velocity: 2200; running: false }
-                onTargetAngleChanged: {
-                    if (root.smoothNeedle) {
-                        smoothAnim.stop();
-                        smoothAnim.to = targetAngle;
-                        smoothAnim.running = true;
-                    } else {
-                        currentAngle = targetAngle;
-                    }
-                }
-                onCurrentAngleChanged: needleCanvas.requestPaint()
-                property real lineWidth: Math.max(2, root.needleThickness * 0.22)
-                property real hubRadius: lineWidth * 2.2
-                Canvas {
-                    id: needleCanvas
-                    anchors.fill: parent
-                    onPaint: {
-                        var ctx = getContext('2d')
-                        ctx.reset()
-                        var cx = width/2
-                        var cy = height/2
-                        ctx.translate(cx, cy)
-                        var ang = (needle.currentAngle + root.orientationOffset) * Math.PI/180.0
-                        var tip = root.radius - root.needleTipInset
-                        ctx.save(); ctx.rotate(ang)
-                        ctx.lineCap = 'round'
-                        ctx.strokeStyle = root.needleColor
-                        ctx.lineWidth = needle.lineWidth
-                        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(tip,0); ctx.stroke(); ctx.restore()
-                        ctx.fillStyle = '#222'
-                        ctx.beginPath(); ctx.arc(0,0, needle.hubRadius, 0, Math.PI*2); ctx.fill()
-                        ctx.strokeStyle = root.needleColor
-                        ctx.lineWidth = 1
-                        ctx.beginPath(); ctx.arc(0,0, needle.hubRadius*0.65, 0, Math.PI*2); ctx.stroke()
-                    }
-                    Component.onCompleted: requestPaint()
-                }
-            }
-        }
-    }
-
     Canvas {
         id: markerCanvas
         anchors.fill: parent
-        visible: !root.showNeedle
+        visible: true
         onPaint: {
             var ctx = getContext('2d'); ctx.reset();
             var cx = width/2, cy = height/2; ctx.translate(cx, cy)
@@ -369,25 +291,21 @@ Item {
                 ctx.fill()
             ctx.restore()
         }
-        Component.onCompleted: if (!root.showNeedle) requestPaint()
+    Component.onCompleted: requestPaint()
     }
 
-    // Update marker when value or geometry changes
     onValueChanged: {
         if (showInnerProgress) innerProgressCanvas.requestPaint()
-        if (!showNeedle) {
-            if (smoothMarker) {
-                markerSmoothedValue = value
-            } else {
-                markerCanvas.requestPaint()
-            }
+        if (smoothMarker) {
+            markerSmoothedValue = value
+        } else {
+            markerCanvas.requestPaint()
         }
     }
-    onMarkerSmoothedValueChanged: if (!showNeedle && smoothMarker) { markerCanvas.requestPaint(); if (showInnerProgress) innerProgressCanvas.requestPaint() }
-    onStartAngleChanged: { if (!showNeedle) markerCanvas.requestPaint(); if (showInnerProgress) innerProgressCanvas.requestPaint() }
-    onEndAngleChanged: { if (!showNeedle) markerCanvas.requestPaint(); if (showInnerProgress) innerProgressCanvas.requestPaint() }
+    onMarkerSmoothedValueChanged: if (smoothMarker) { markerCanvas.requestPaint(); if (showInnerProgress) innerProgressCanvas.requestPaint() }
+    onStartAngleChanged: { markerCanvas.requestPaint(); if (showInnerProgress) innerProgressCanvas.requestPaint() }
+    onEndAngleChanged: { markerCanvas.requestPaint(); if (showInnerProgress) innerProgressCanvas.requestPaint() }
     onInnerProgressRadiusChanged: if (showInnerProgress) innerProgressCanvas.requestPaint()
     onInnerProgressWidthChanged: if (showInnerProgress) innerProgressCanvas.requestPaint()
     onInnerProgressColorChanged: if (showInnerProgress) innerProgressCanvas.requestPaint()
-    // (redFrom handled above with scale repaint & marker repaint)
 }
