@@ -11,6 +11,7 @@ from PySide6.QtCore import Qt, QUrl, qInstallMessageHandler, QtMsgType, QLibrary
 import config
 from telemetry import Telemetry
 import io_teensy
+from test import demo as demo_mod
 
 def _qt_msg_handler(mode, ctx, message):
     if mode in (QtMsgType.QtWarningMsg, QtMsgType.QtCriticalMsg, QtMsgType.QtFatalMsg):
@@ -143,15 +144,7 @@ def main():
         if os.path.isfile(dev_qml):
             engine.load(QUrl.fromLocalFile(dev_qml))
     if dev_mode_int == 2:
-        start_t = time.time()
-        demo_timer = QTimer()
-        demo_timer.setInterval(16)
-        def _demo_tick():
-            t = time.time() - start_t
-            tel.demoTick(t)
-        demo_timer.timeout.connect(_demo_tick)
-        demo_timer.start()
-        print("[DEMO] Running synthetic data (DEVELOP_MODE=2)")
+        demo_mod.start_demo(tel)
     else:
         io_teensy.start_serial(tel)
 

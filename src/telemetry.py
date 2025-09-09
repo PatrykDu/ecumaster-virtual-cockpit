@@ -373,66 +373,6 @@ class Telemetry(QObject):
                 self._got_first = True
                 self.firstFrameReceived.emit()
 
-    def demoTick(self, t: float):
-        def tri(time_s: float, period: float) -> float:
-            ph = (time_s % period) / period
-            return ph * 2.0 if ph < 0.5 else 2.0 - ph * 2.0
-        rpm_frac = tri(t, 6.0)
-        rpm = int(rpm_frac * 7000)
-        speed = rpm_frac * 230.0
-        fuel_val = int(tri(t, 22.0) * 100)
-
-        if os.environ.get("DEVELOP_MODE") == "2":
-            water_temp = int(40 + tri(t * 0.85, 14.0) * (140 - 40))
-            oil_temp   = int(29 + tri(t * 0.80 + 1.3, 15.0) * (90 - 29))
-            charging_volt = 11.0 + tri(t * 0.95, 11.0) * 5.0
-            oil_press = tri(t * 1.10, 7.5) * 8.0
-            afr_val = 10.0 + tri(t * 0.75 + 0.4, 13.0) * 8.0
-        else:
-            w_frac = tri(t, 30.0)
-            water_temp = int(60 + w_frac * 90)
-            oil_temp = int(50 + w_frac * 95)
-            afr_val = 14.7 + math.sin(t * 0.8) * 0.6
-            if int(t) % 7 == 0:
-                afr_val -= 2.0 * max(0.0, 0.5 - ((t % 7) * 0.5))
-            charging_volt = 14.25 + math.sin(t * 0.35) * 0.25
-            if int(t) % 19 == 0:
-                charging_volt += 0.6 * math.sin(t * 3.0)
-            if int(t) % 23 == 0:
-                charging_volt -= 0.8 * math.sin(t * 4.0)
-            oil_press = max(0.0, min(8.0, 1.0 + (rpm / 7000.0) * 5.5 + math.sin(t * 1.1) * 0.4))
-
-        blink_left = int((t * 1.5) % 2) == 0
-        blink_right = not blink_left
-        high_beam = rpm > 6000
-        park = int((t / 10) % 2) == 0
-        check_engine = int((t / 15) % 30) == 0
-        low_beam = True
-        fog_rear = int((t / 5) % 2) == 0
-        underglow = int((t * 0.5) % 2) == 0
-
-        self.setRpm(rpm)
-        self.setSpeed(speed)
-        self.setLeftBlink(blink_left)
-        self.setRightBlink(blink_right)
-        self.setHighBeam(high_beam)
-        self.setPark(park)
-        self.setFuel(fuel_val)
-        self.setWaterTemp(water_temp)
-        self.setOilTemp(oil_temp)
-        self.setCheckEngine(check_engine)
-        self.setLowBeam(low_beam)
-        self.setFogRear(fog_rear)
-        self.setUnderglow(underglow)
-        self.setCharging(int((t / 7) % 2) == 0 and rpm > 2500)
-        self.setAbs(int((t / 11) % 3) == 0 and speed > 80)
-        self.setWheelPressure(int((t / 9) % 2) == 0 and fuel_val < 30)
-        self.setAfr(afr_val)
-        self.setChargingVolt(charging_volt)
-        self.setOilPressure(oil_press)
-        if not self._got_first:
-            self._got_first = True
-            self.firstFrameReceived.emit()
 
     # PERSISTENCE
     @Slot(int, int, int, int)
