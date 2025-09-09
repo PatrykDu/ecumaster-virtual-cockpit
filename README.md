@@ -1,4 +1,4 @@
-![dashboard](dashboard.png)
+![Dashboard](dashboard.png)
 # Virtual Cluster (PySide6/QML)
 
 Virtual automotive cluster (single concentric RPM ring with inner speed, bar‑style fuel & water temperature gauges, status/warning indicators) driven by Teensy 4.1 (EMU Black CAN) or a built‑in DEMO mode fallback.
