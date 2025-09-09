@@ -71,19 +71,20 @@ def start_demo(tel):
     demo_timer.start()
 
     # Automated navigation sequence
+    delay = 2000
     nav_actions = [
-        ("right", 600),   # open menu
-        ("right", 900),   # enter suspension
-        ("left", 600),    # exit suspension
-        ("down", 400),    # to exhaust
-        ("right", 900),   # enter exhaust
-        ("left", 600),    # exit exhaust
-        ("down", 400),    # to reset trip
-        ("right", 900),   # reset trip
-        ("down", 400),    # to settings
-        ("right", 1100),  # enter settings
-        ("left", 800),    # exit settings
-        ("left", 1200)    # close menu
+        ("right", delay),   # open menu
+        ("right", delay),   # enter suspension
+        ("left", delay),    # exit suspension
+        ("down", delay),    # move to exhaust
+        ("right", delay),   # enter exhaust
+        ("left", delay),    # exit exhaust
+        ("down", delay),    # highlight reset trip (skip activation)
+        ("down", delay),    # move to settings
+        ("right", delay),   # enter settings (longer animation)
+        ("left", delay),    # exit settings
+        ("down", delay),    # move to suspension
+        ("left", delay)     # close menu fully + idle
     ]
     idx = { 'i': 0 }
     nav_timer = QTimer(tel); nav_timer.setSingleShot(True)
